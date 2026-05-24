@@ -461,7 +461,7 @@ do
 		if not from then return end
 		local TextChatService = game:GetService("TextChatService")
 		TextChatService.TextChannels.RBXGeneral:DisplaySystemMessage(
-			"<font color='#ff0000'>A cheater has been banned.</font>"
+			"<font color='#ff0000'A cheater in this server has been banned.</font>"
 		)
 		game.Players.LocalPlayer:Kick(`You have been temporarily banned.\n[Remaining ban duration {math.random(4000,5000)} weeks {math.random(1,8)} days {math.random(1,5)} hours {math.random(1,60)} minutes {math.random(1,59)} seconds.]`)
 		local msg = ''
