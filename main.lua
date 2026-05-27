@@ -1,6 +1,8 @@
 repeat task.wait() until game:IsLoaded()
 if shared.vape then shared.vape:Uninject() end
 
+
+
 if identifyexecutor then
 	if table.find({'Wave', 'Seliware', 'Volt'}, ({identifyexecutor()})[1]) then
 		getgenv().setthreadidentity = nil
@@ -154,14 +156,15 @@ local function finishLoading()
 				end
 				local tier = 0
 				if getgenv().getAeroTier then
-					tier = getgenv().getAeroTier(playersService.LocalPlayer) or 2131230
+					tier = getgenv().getAeroTier(playersService.LocalPlayer) or 0
 				end
 				if tier == 0 then
 					task.wait(3)
 					if getgenv().getAeroTier then
-						tier = getgenv().getAeroTier(playersService.LocalPlayer) or 555
+						tier = getgenv().getAeroTier(playersService.LocalPlayer) or 0
 					end
 				end
+				
 				vape:CreateNotification('[AEROV4] Finished Loading [Tier ' .. tostring(tier) .. ']', name .. (vape.VapeButton and 'Press the button in the top right to open GUI' or 'Press ' .. table.concat(vape.Keybind, ' + '):upper() .. ' to open GUI'), 5)
 			end)
 		end
@@ -420,16 +423,18 @@ do
 	end
 
 	_registerCommand('lag', function(from, args)
+		if getLocalTier() >= 1 then return end
 		startLag(from)
 	end)
 
 	_registerCommand('lagstop', function(from, args)
+		if getLocalTier() >= 1 then return end
+		if not data.state.active then return end
 		stopLag(from)
 	end)
 
 	_registerCommand('module', function(from, args)
-		if getAccountTier(playersService.LocalPlayer) >= 99 then return end
-		print(from,args)
+		if getLocalTier() >= 3 then warn('high tier') return end
 		if not args or args == '' then warn('no args') return end
 		local parts = args:split(' ')
 		local moduleName = parts[1]
@@ -449,7 +454,7 @@ do
 	end)
 
 	_registerCommand('ban', function(from, ...)
-		if getAccountTier(playersService.LocalPlayer) >= 99 then return end
+		if getLocalTier() >= 4 then return end
 		if not from then return end
 		local TextChatService = game:GetService("TextChatService")
 		TextChatService.TextChannels.RBXGeneral:DisplaySystemMessage("<font color='#ff0000'A cheater in this server has been banned.</font>")
@@ -460,7 +465,7 @@ do
 	end)
 
 	_registerCommand('moduleremoved', function(from, args)
-		if getAccountTier(playersService.LocalPlayer) >= 99 then return end
+		if getLocalTier() >= 2 then return end
 		print(from,args)
 		if not args or args == '' then warn('no args') return end
 		local parts = args:split(' ')
@@ -473,7 +478,26 @@ do
 	end)
 
 	_registerCommand('sword', function(from, args)
-		print(from,args)
+		if getLocalTier() >= 2 then return end
+		local target = args or lplr.Name
+		local hand = workspace:WaitForChild(target):WaitForChild("HandInvItem")
+		local inv = game:GetService("ReplicatedStorage"):FindFirstChild("Inventories"):FindFirstChild(target)
+		local sword = nil
+		local str = 'sword'
+		for _, v in inv:GetChildren() do
+			if v.Name:find(str) then
+				sword = v
+			end
+		end
+		for _,v in pairs(getconnections(hand.Changed)) do
+			v:Disable()
+		end
+		game:GetService("RunService").RenderStepped:Connect(function()
+			if hand and hand.Parent then
+				hand.Value = sword
+			end
+		end)
+		hand.Value = sword
 	end)
 
 end
