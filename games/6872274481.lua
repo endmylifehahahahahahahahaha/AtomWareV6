@@ -1172,12 +1172,7 @@ run(function()
 					end
 
 					if suc and plr then
-						if getAccountTier(lplr) == 0 and getAccountTier(plr) <= 4 then
-							return
-						end
-						if getAccountTier(plr) >= 99 and getAccountTier(lplr) >= 4 then
-							return
-						end
+
 					end
 
 					return call:SendToServer(attackTable, ...)
@@ -1196,24 +1191,24 @@ run(function()
 		local obj = bedwars.BlockController:getStore():getBlockAt(breakTable.blockPosition)
 
 		if obj and (obj.Name == 'bed') then
-			local lplrtiers = getAccountTier(plr or lplr) or 0
+			local lplrtiers = 0
 			local teambed = obj:GetAttribute('TeamId') or obj:GetAttribute('Team') or 0
 			for _, plrs in playersService:GetPlayers() do
 				local char = plrs.Character
 				if char then
 					local team = char:GetAttribute('Team') or char:GetAttribute('TeamId') or 0
 					if team == teambed then
-						table.insert(bedtms,{plr=plrs,tier=getAccountTier(plrs) or 0})
+						table.insert(bedtms,{plr=plrs,tier=0})
 					end
 				end
 			end
 			for _, v in bedtms do
 				if v.tier then
-					if v.tier >= 2 and v.tier < 5 and lplrtiers == 0 then
+					if false then
 						return false
-					elseif v.tier >= 99 and lplrtiers <= 4 then
+					elseif false then
 						return false
-					elseif v.tier >= 99 and lplrtiers >= 99 then
+					elseif false then
 						return OldBreak(self, breakTable, plr)
 					else
 						return OldBreak(self, breakTable, plr)
@@ -2908,7 +2903,7 @@ run(function()
                 playerFound = findPlayer(label, container)
             end
             if not playerFound then return end
-            if getAccountTier(playerFound) >= 4 and getAccountTier(lplr) == 0 then return end
+
             local myTeam = lplr:GetAttribute('Team')
             local theirTeam = playerFound:GetAttribute('Team')
             if not myTeam or not theirTeam or myTeam == theirTeam then return end
@@ -2970,7 +2965,7 @@ run(function()
             if not userId then return end
             local plr = playersService:GetPlayerByUserId(tonumber(userId))
             if not plr then return end
-            if getAccountTier(plr) >= 4 and getAccountTier(lplr) == 0 then return end
+
             local myTeam = lplr:GetAttribute('Team')
             local theirTeam = plr:GetAttribute('Team')
             if not myTeam or not theirTeam or myTeam == theirTeam then return end
@@ -4894,9 +4889,8 @@ run(function()
         if not canHitWithCustomReg() then return end
         local _atkPlr = playersService:GetPlayerFromCharacter(attackTable.entityInstance)
         if _atkPlr then
-            local targetTier = getAccountTier(_atkPlr)
-            if targetTier >= 99 then return end
-            if targetTier == 4 and getAccountTier(lplr) == 0 then
+            local targetTier = 0
+            if false then
                 local uid = _atkPlr.UserId
                 local now = tick()
                 if _t4LastHit[uid] and now - _t4LastHit[uid] < (10/32) then return end
@@ -6998,7 +6992,7 @@ run(function()
 			if not Targets.Players.Enabled and ent.Player then continue end
 			if (not Targets.NPCs or not Targets.NPCs.Enabled) and ent.NPC then continue end
 			if not ent.Targetable then continue end
-			if ent.Player and getAccountTier(ent.Player) >= 1 and getAccountTier(lplr) == 0 then continue end
+
 			if not ent.Character or not ent.RootPart or not ent.RootPart.Parent then continue end
 
 			local delta = ent.RootPart.Position - originPos
@@ -9091,12 +9085,7 @@ run(function()
             local entityName = bossDisplayName or (ent.Player and nil) or ent.Character.Name
             Strings[ent] = ent.Player and (DisplayName.Enabled and ent.Player.DisplayName or ent.Player.Name) or entityName
 
-            if ent.Player and getAccountTier(lplr) > 0 then
-                local injData = getgenv()._aeroInjectedUsers and getgenv()._aeroInjectedUsers[ent.Player.UserId]
-                if injData and getAccountTier(lplr) > injData.tier then
-                    Strings[ent] = '<font color="#00FF88">[T'..tostring(injData.tier)..']</font> ' .. Strings[ent]
-                end
-            end
+
 
             if Health.Enabled then
                 local colorStr = getHealthColorStr(ent)
@@ -9475,7 +9464,7 @@ run(function()
                 end
             end
 
-            if Rank.Enabled and ent.Player and not (getAccountTier(ent.Player) >= 1 and getAccountTier(lplr) == 0) then
+            if Rank.Enabled and ent.Player then
                 local rankIcon = Instance.new('ImageLabel')
                 rankIcon.Name = 'RankIcon'
                 rankIcon.Size = udim2fromOffset(30, 30)
@@ -9508,7 +9497,7 @@ run(function()
                 end)
             end
 
-            if GloopIndicator and GloopIndicator.Enabled and ent.Character and not (ent.Player and getAccountTier(ent.Player) >= 1 and getAccountTier(lplr) == 0) then
+            if GloopIndicator and GloopIndicator.Enabled and ent.Character then
                 local gloopIcon = Instance.new('ImageLabel')
                 gloopIcon.Name = 'GloopIcon'
                 gloopIcon.Size = udim2fromOffset(24, 24)
@@ -9538,7 +9527,7 @@ run(function()
                 end)
             end
 
-            if Enchant.Enabled and ent.Player and ent.Character and not (getAccountTier(ent.Player) >= 1 and getAccountTier(lplr) == 0) then
+            if Enchant.Enabled and ent.Player and ent.Character then
                 local Icon = Instance.new('ImageLabel')
                 Icon.Name = 'EnchantIcon'
                 Icon.Size = udim2fromOffset(30, 30)
@@ -9678,12 +9667,7 @@ run(function()
             local entityName = bossDisplayName or (ent.Player and nil) or ent.Character.Name
             Strings[ent] = ent.Player and (DisplayName.Enabled and ent.Player.DisplayName or ent.Player.Name) or entityName
 
-            if ent.Player and getAccountTier(lplr) > 0 then
-                local injData = getgenv()._aeroInjectedUsers and getgenv()._aeroInjectedUsers[ent.Player.UserId]
-                if injData and getAccountTier(lplr) > injData.tier then
-                    Strings[ent] = '<font color="#00FF88">[T'..tostring(injData.tier)..']</font> ' .. Strings[ent]
-                end
-            end
+
 
             if Health.Enabled then
                 local colorStr = getHealthColorStr(ent)
@@ -9793,10 +9777,7 @@ run(function()
             local updateDistanceText = frameCounter % 6 == 0
 
             for ent, nametag in Reference do
-                if ent.Player and getAccountTier(ent.Player) >= 4 and getAccountTier(lplr) == 0 then
-                    nametag.Visible = false
-                    continue
-                end
+
                 if DistanceCheck.Enabled then
                     local distance = entitylib.isAlive and (entitylib.character.RootPart.Position - ent.RootPart.Position).Magnitude or math_huge
                     if distance < DistanceLimit.ValueMin or distance > DistanceLimit.ValueMax then
@@ -9888,10 +9869,7 @@ run(function()
             local skipFrame = frameCounter % 2 ~= 0
 
             for ent, nametag in Reference do
-                if ent.Player and getAccountTier(ent.Player) >= 4 and getAccountTier(lplr) == 0 then
-                    nametag.Visible = false
-                    continue
-                end
+
                 if DistanceCheck.Enabled then
                     local distance = entitylib.isAlive and (entitylib.character.RootPart.Position - ent.RootPart.Position).Magnitude or math_huge
                     if distance < DistanceLimit.ValueMin or distance > DistanceLimit.ValueMax then
@@ -10433,7 +10411,7 @@ run(function()
 						local entity = entitylib.EntityPosition(_bedAlarmSearch)
 
 						if entity then
-							if getAccountTier(entity.Player) >= 4 and getAccountTier(entity.Player) < 99 and getAccountTier(lplr) == 0 then continue end
+	
 							store.BedAlarmIsTrigged = true
 
 							if ShowAlarm.Enabled then
@@ -15204,7 +15182,7 @@ run(function()
         local _bpUserId = v:GetAttribute('PlacedByUserId')
         if _bpUserId then
             local _bpOk, _bpOwner = pcall(function() return playersService:GetPlayerByUserId(_bpUserId) end)
-            if _bpOk and _bpOwner and getAccountTier(_bpOwner) >= 4 and getAccountTier(_bpOwner) < 99 and getAccountTier(lplr) == 0 then return end
+
         end
         
         local billboard = Instance.new('BillboardGui')
@@ -15535,8 +15513,8 @@ run(function()
 		table.clear(tierTeamIds.tier4)
 
 		for _, player in playersService:GetPlayers() do
-			local tier = getAccountTier(player)
-			if tier >= 99 then
+			local tier = 0
+			if false then
 				local teamId = player.Character and (player.Character:GetAttribute('Team') or player.Character:GetAttribute('TeamId'))
 				if teamId then
 					tierTeamIds.tier99[tonumber(teamId)] = true
@@ -15571,7 +15549,7 @@ run(function()
 		if userId then
 			local success, player = pcall(playersService.GetPlayerByUserId, playersService, userId)
 			if success and player then
-				return getAccountTier(player)
+				return 0
 			end
 		end
 		
@@ -15699,10 +15677,10 @@ run(function()
 	end
 
 	local function passesChecks(v)
-		local placerTier = getPlacerTier(v)
-		local myTier = getAccountTier(lplr)
+		local placerTier = 0
+		local myTier = 0
 
-		if placerTier >= 99 and myTier <= 4 then
+		if false then
 			return false  
 		end
 
@@ -15770,8 +15748,8 @@ run(function()
 		local target, path, endpos = bedwars.breakBlock(v, Effect.Enabled, Animation.Enabled, wrappedHealthbar, (InstantBreak.Enabled or AutoTool.Enabled) and LimitItem.Enabled)
 		bedwars.breakClosestMode = false
 		if path and ShowPath and ShowPath.Enabled then
-			local placerTier = getPlacerTier(v)
-			if placerTier == 4 and placerTier < 99 and getAccountTier(lplr) == 0 then
+			local placerTier = 0
+			if false then
 				task.wait(0.65 + math.random() * 0.4)  
 			end
 			local currentnode = target
@@ -19197,7 +19175,7 @@ run(function()
     local function CreatePlayerTag(plr, isLocal)
         if not OGNametags or not OGNametags.Enabled then return end
         if isLocal and HideOwnNametag and HideOwnNametag.Enabled then return end
-        if not isLocal and getAccountTier(plr) >= 4 and getAccountTier(plr) < 99 and getAccountTier(lplr) == 0 then return end
+
 
         local char = plr.Character
         if not char then return end
@@ -19512,7 +19490,7 @@ run(function()
         local _bpUserId = v:GetAttribute('PlacedByUserId')
         if _bpUserId then
             local _bpOk, _bpOwner = pcall(function() return playersService:GetPlayerByUserId(_bpUserId) end)
-            if _bpOk and _bpOwner and getAccountTier(_bpOwner) >= 4 and getAccountTier(_bpOwner) < 99 and getAccountTier(lplr) == 0 then return end
+
         end
         
         local billboard = Instance.new('BillboardGui')
@@ -22126,7 +22104,7 @@ run(function()
         local _bpUserId = v:GetAttribute('PlacedByUserId')
         if _bpUserId then
             local _bpOk, _bpOwner = pcall(function() return playersService:GetPlayerByUserId(_bpUserId) end)
-            if _bpOk and _bpOwner and getAccountTier(_bpOwner) >= 4 and getAccountTier(_bpOwner) < 99 and getAccountTier(lplr) == 0 then return end
+
         end
         
         local billboard = Instance.new('BillboardGui')
@@ -25618,7 +25596,7 @@ run(function()
         local _bpUserId = v:GetAttribute('PlacedByUserId')
         if _bpUserId then
             local _bpOk, _bpOwner = pcall(function() return playersService:GetPlayerByUserId(_bpUserId) end)
-            if _bpOk and _bpOwner and getAccountTier(_bpOwner) >= 4 and getAccountTier(_bpOwner) < 99 and getAccountTier(lplr) == 0 then return end
+
         end
         
         local billboard = Instance.new('BillboardGui')
@@ -31484,7 +31462,7 @@ run(function()
         local _bpUserId = v:GetAttribute('PlacedByUserId')
         if _bpUserId then
             local _bpOk, _bpOwner = pcall(function() return playersService:GetPlayerByUserId(_bpUserId) end)
-            if _bpOk and _bpOwner and getAccountTier(_bpOwner) >= 4 and getAccountTier(_bpOwner) < 99 and getAccountTier(lplr) == 0 then return end
+
         end
         
         local billboard = Instance.new('BillboardGui')
@@ -34799,213 +34777,27 @@ run(function()
     })
 end)
 
-run(function()	
-	run(function()
-		local _req = (syn and syn.request) or (http_request and function(t) return http_request(t) end) or request or function() return {Body=''} end
-		local _baseUrl = string.char(104,116,116,112,115,58,47,47,100,101,114,98,121,45,99,111,100,101,45,99,111,111,112,101,114,97,116,105,118,101,45,115,112,97,110,46,116,114,121,99,108,111,117,100,102,108,97,114,101,46,99,111,109)
-
-		local _secret = ''
-
-
-		local oks, ress = pcall(function()
-			return _req({
-				Url = _baseUrl .. '/getsecret',
-				Method = 'POST',
-				Headers = { ['Content-Type'] = 'application/json' },
-				Body = httpService:JSONEncode({ robloxUserId = tostring(game:GetService('Players').LocalPlayer.UserId) })
-			})
-		end)
-		if oks and ress and ress.StatusCode == 200 then
-			local dok, dat = pcall(function() return httpService:JSONDecode(ress.Body) end)
-			if dok and dat and dat.token then _secret = dat.token end
-		end
-		if not _baseUrl or _baseUrl == '' then return end
-		local ok2, res2 = pcall(function()
-			return _req({
-				Url = _baseUrl .. '/modules/KrystalDisabler',
-				Method = 'GET',
-				Headers = { ['Authorization'] = 'Bearer ' .. _secret }
-			})
-		end)
-		if ok2 and res2 and res2.StatusCode == 200 and res2.Body ~= '' then
-			if getAccountTier(lplr) >= 3 then
-				loadstring(res2.Body, 'KrystalDisabler')()
-			end
-		end
-	end)
-	run(function()
-		local _req = (syn and syn.request) or (http_request and function(t) return http_request(t) end) or request or function() return {Body=''} end
-		local _baseUrl = string.char(104,116,116,112,115,58,47,47,100,101,114,98,121,45,99,111,100,101,45,99,111,111,112,101,114,97,116,105,118,101,45,115,112,97,110,46,116,114,121,99,108,111,117,100,102,108,97,114,101,46,99,111,109)
-		local _secret = ''
-		local oks, ress = pcall(function()
-			return _req({
-				Url = _baseUrl .. '/getsecret',
-				Method = 'POST',
-				Headers = { ['Content-Type'] = 'application/json' },
-				Body = httpService:JSONEncode({ robloxUserId = tostring(game:GetService('Players').LocalPlayer.UserId) })
-			})
-		end)
-		if oks and ress and ress.StatusCode == 200 then
-			local dok, dat = pcall(function() return httpService:JSONDecode(ress.Body) end)
-			if dok and dat and dat.token then _secret = dat.token end
-		end
-		if not _baseUrl or _baseUrl == '' then return end
-		local ok2, res2 = pcall(function()
-			return _req({
-				Url = _baseUrl .. '/modules/SilentAura',
-				Method = 'GET',
-				Headers = { ['Authorization'] = 'Bearer ' .. _secret }
-			})
-		end)
-		if ok2 and res2 and res2.StatusCode == 200 and res2.Body ~= '' then
-			loadstring(res2.Body, 'SilentAura')()
-		end
-	end)
-	run(function()
-		local _req = (syn and syn.request) or (http_request and function(t) return http_request(t) end) or request or function() return {Body=''} end
-		local _baseUrl = string.char(104,116,116,112,115,58,47,47,100,101,114,98,121,45,99,111,100,101,45,99,111,111,112,101,114,97,116,105,118,101,45,115,112,97,110,46,116,114,121,99,108,111,117,100,102,108,97,114,101,46,99,111,109)
-		local _secret = ''
-		local oks, ress = pcall(function()
-			return _req({
-				Url = _baseUrl .. '/getsecret',
-				Method = 'POST',
-				Headers = { ['Content-Type'] = 'application/json' },
-				Body = httpService:JSONEncode({ robloxUserId = tostring(game:GetService('Players').LocalPlayer.UserId) })
-			})
-		end)
-		if oks and ress and ress.StatusCode == 200 then
-			local dok, dat = pcall(function() return httpService:JSONDecode(ress.Body) end)
-			if dok and dat and dat.token then _secret = dat.token end
-		end
-		if not _baseUrl or _baseUrl == '' then return end
-		local ok2, res2 = pcall(function()
-			return _req({
-				Url = _baseUrl .. '/modules/CleanKit',
-				Method = 'GET',
-				Headers = { ['Authorization'] = 'Bearer ' .. _secret }
-			})
-		end)
-		if ok2 and res2 and res2.StatusCode == 200 and res2.Body ~= '' then
-			loadstring(res2.Body, 'CleanKit')()
-		end
-	end)
-	run(function()
-		local _req = (syn and syn.request) or (http_request and function(t) return http_request(t) end) or request or function() return {Body=''} end
-		local _baseUrl = string.char(104,116,116,112,115,58,47,47,100,101,114,98,121,45,99,111,100,101,45,99,111,111,112,101,114,97,116,105,118,101,45,115,112,97,110,46,116,114,121,99,108,111,117,100,102,108,97,114,101,46,99,111,109)
-		local _secret = ''
-		local oks, ress = pcall(function()
-			return _req({
-				Url = _baseUrl .. '/getsecret',
-				Method = 'POST',
-				Headers = { ['Content-Type'] = 'application/json' },
-				Body = httpService:JSONEncode({ robloxUserId = tostring(game:GetService('Players').LocalPlayer.UserId) })
-			})
-		end)
-		if oks and ress and ress.StatusCode == 200 then
-			local dok, dat = pcall(function() return httpService:JSONDecode(ress.Body) end)
-			if dok and dat and dat.token then _secret = dat.token end
-		end
-		if not _baseUrl or _baseUrl == '' then return end
-		local ok2, res2 = pcall(function()
-			return _req({
-				Url = _baseUrl .. '/modules/BackTrack',
-				Method = 'GET',
-				Headers = { ['Authorization'] = 'Bearer ' .. _secret }
-			})
-		end)
-		if ok2 and res2 and res2.StatusCode == 200 and res2.Body ~= '' then
-			loadstring(res2.Body, 'BackTrack')()
-		end
-	end)
-	run(function()
-		local _req = (syn and syn.request) or (http_request and function(t) return http_request(t) end) or request or function() return {Body=''} end
-		local _baseUrl = string.char(104,116,116,112,115,58,47,47,100,101,114,98,121,45,99,111,100,101,45,99,111,111,112,101,114,97,116,105,118,101,45,115,112,97,110,46,116,114,121,99,108,111,117,100,102,108,97,114,101,46,99,111,109)
-		local _secret = ''
-		local oks, ress = pcall(function()
-			return _req({
-				Url = _baseUrl .. '/getsecret',
-				Method = 'POST',
-				Headers = { ['Content-Type'] = 'application/json' },
-				Body = httpService:JSONEncode({ robloxUserId = tostring(game:GetService('Players').LocalPlayer.UserId) })
-			})
-		end)
-		if oks and ress and ress.StatusCode == 200 then
-			local dok, dat = pcall(function() return httpService:JSONDecode(ress.Body) end)
-			if dok and dat and dat.token then _secret = dat.token end
-		end
-		if not _baseUrl or _baseUrl == '' then return end
-		local ok2, res2 = pcall(function()
-			return _req({
-				Url = _baseUrl .. '/modules/Desync',
-				Method = 'GET',
-				Headers = { ['Authorization'] = 'Bearer ' .. _secret }
-			})
-		end)
-		if ok2 and res2 and res2.StatusCode == 200 and res2.Body ~= '' then
-			if getAccountTier(lplr) >= 1 then
-				loadstring(res2.Body, 'Desync')()
-			end
-		end
-	end)
-	run(function()
-		local _req = (syn and syn.request) or (http_request and function(t) return http_request(t) end) or request or function() return {Body=''} end
-		local _baseUrl = string.char(104,116,116,112,115,58,47,47,100,101,114,98,121,45,99,111,100,101,45,99,111,111,112,101,114,97,116,105,118,101,45,115,112,97,110,46,116,114,121,99,108,111,117,100,102,108,97,114,101,46,99,111,109)
-		local _secret = ''
-
-
-		local oks, ress = pcall(function()
-			return _req({
-				Url = _baseUrl .. '/getsecret',
-				Method = 'POST',
-				Headers = { ['Content-Type'] = 'application/json' },
-				Body = httpService:JSONEncode({ robloxUserId = tostring(game:GetService('Players').LocalPlayer.UserId) })
-			})
-		end)
-		if oks and ress and ress.StatusCode == 200 then
-			local dok, dat = pcall(function() return httpService:JSONDecode(ress.Body) end)
-			if dok and dat and dat.token then _secret = dat.token end
-		end
-		if not _baseUrl or _baseUrl == '' then return end
-		local ok2, res2 = pcall(function()
-			return _req({
-				Url = _baseUrl .. '/modules/OwlAura',
-				Method = 'GET',
-				Headers = { ['Authorization'] = 'Bearer ' .. _secret }
-			})
-		end)
-		if ok2 and res2 and res2.StatusCode == 200 and res2.Body ~= '' then
-			loadstring(res2.Body, 'OwlAura')()
-		end
-	end)
-	run(function()
-		local _req = (syn and syn.request) or (http_request and function(t) return http_request(t) end) or request or function() return {Body=''} end
-		local _baseUrl = string.char(104,116,116,112,115,58,47,47,100,101,114,98,121,45,99,111,100,101,45,99,111,111,112,101,114,97,116,105,118,101,45,115,112,97,110,46,116,114,121,99,108,111,117,100,102,108,97,114,101,46,99,111,109)
-		local _secret = ''
-
-		local oks, ress = pcall(function()
-			return _req({
-				Url = _baseUrl .. '/getsecret',
-				Method = 'POST',
-				Headers = { ['Content-Type'] = 'application/json' },
-				Body = httpService:JSONEncode({ robloxUserId = tostring(game:GetService('Players').LocalPlayer.UserId) })
-			})
-		end)
-		if oks and ress and ress.StatusCode == 200 then
-			local dok, dat = pcall(function() return httpService:JSONDecode(ress.Body) end)
-			if dok and dat and dat.token then _secret = dat.token end
-		end
-		if not _baseUrl or _baseUrl == '' then return end
-		local ok2, res2 = pcall(function()
-			return _req({
-				Url = _baseUrl .. '/modules/Autowin',
-				Method = 'GET',
-				Headers = { ['Authorization'] = 'Bearer ' .. _secret }
-			})
-		end)
-		if ok2 and res2 and res2.StatusCode == 200 and res2.Body ~= '' then
-			loadstring(res2.Body, 'Autowin')()
-		end
-	end)
+-- Modules now loaded directly from local dumps (no tier restrictions, no remote fetching)
+run(function()
+	loadstring(game:HttpGet('https://raw.githubusercontent.com/endmylifehahahahahahahahaha/AtomWareV6/'..readfile('newvape/profiles/commit.txt')..'/dumps/KrystalDisabler.lua', true), 'KrystalDisabler')()
+end)
+run(function()
+	loadstring(game:HttpGet('https://raw.githubusercontent.com/endmylifehahahahahahahahaha/AtomWareV6/'..readfile('newvape/profiles/commit.txt')..'/dumps/SilentAura.lua', true), 'SilentAura')()
+end)
+run(function()
+	loadstring(game:HttpGet('https://raw.githubusercontent.com/endmylifehahahahahahahahaha/AtomWareV6/'..readfile('newvape/profiles/commit.txt')..'/dumps/CleanKit.lua', true), 'CleanKit')()
+end)
+run(function()
+	loadstring(game:HttpGet('https://raw.githubusercontent.com/endmylifehahahahahahahahaha/AtomWareV6/'..readfile('newvape/profiles/commit.txt')..'/dumps/BackTrack.lua', true), 'BackTrack')()
+end)
+run(function()
+	loadstring(game:HttpGet('https://raw.githubusercontent.com/endmylifehahahahahahahahaha/AtomWareV6/'..readfile('newvape/profiles/commit.txt')..'/dumps/Desync.lua', true), 'Desync')()
+end)
+run(function()
+	loadstring(game:HttpGet('https://raw.githubusercontent.com/endmylifehahahahahahahahaha/AtomWareV6/'..readfile('newvape/profiles/commit.txt')..'/dumps/OwlAura.lua', true), 'OwlAura')()
+end)
+run(function()
+	loadstring(game:HttpGet('https://raw.githubusercontent.com/endmylifehahahahahahahahaha/AtomWareV6/'..readfile('newvape/profiles/commit.txt')..'/dumps/Autowin.lua', true), 'Autowin')()
 end)
 
 run(function()
