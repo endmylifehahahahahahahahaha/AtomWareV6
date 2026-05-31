@@ -73,6 +73,17 @@ local function waitForChildOfType(obj, name, timeout, prop)
 	return returned
 end
 
+local function ensureHumanoidScaleValues(hum)
+	for _, name in {'BodyDepthScale', 'BodyHeightScale', 'BodyWidthScale', 'HeadScale', 'BodyTypeScale', 'BodyProportionScale'} do
+		if not hum:FindFirstChild(name) then
+			local value = Instance.new('NumberValue')
+			value.Name = name
+			value.Value = (name == 'BodyTypeScale' or name == 'BodyProportionScale') and 0 or 1
+			value.Parent = hum
+		end
+	end
+end
+
 entitylib.targetCheck = function(ent)
 	if ent.TeamCheck then
 		return ent:TeamCheck()
@@ -242,6 +253,10 @@ entitylib.addEntity = function(char, plr, teamfunc)
 		local head = char:WaitForChild('Head', 10) or humrootpart
 
 		if hum and humrootpart then
+			if plr == lplr then
+				ensureHumanoidScaleValues(hum)
+			end
+
 			local entity = {
 				Connections = {},
 				Character = char,

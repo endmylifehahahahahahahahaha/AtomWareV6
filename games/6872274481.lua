@@ -3481,18 +3481,24 @@ run(function()
 		Tooltip = 'allows you to edit ur velocity',
 		Function = function(callback)
 			if callback then
-				old = bedwars.KnockbackUtil.applyKnockback
+				old = bedwars.KnockbackUtil and bedwars.KnockbackUtil.applyKnockback
+				if type(old) ~= 'function' then
+					notif('Velocity', 'Failed to hook knockback!', 3)
+					Velocity:Toggle()
+					return
+				end
 				Velocity:Clean(vapeEvents.TakeKnockback.Event:Connect(function(root, mass, dir, knockback, ...)
+					if type(old) ~= 'function' then return end
 					local args = {...}
-					local clone = table.clone(knockback)
+					local clone = type(knockback) == 'table' and table.clone(knockback) or {}
 
 					local air, ground = false, false
 					task.delay(DelayAir.Value / 1000, function()
-						clone.horizontal = knockback.horizontal or 1
+						clone.horizontal = type(knockback) == 'table' and knockback.horizontal or 1
 						air = true
 					end)
 					task.delay(DelayGround.Value / 1000, function()
-						clone.vertical = knockback.vertical or 1
+						clone.vertical = type(knockback) == 'table' and knockback.vertical or 1
 						ground = true
 					end)
 					repeat task.wait(0.1) until air
@@ -3501,6 +3507,7 @@ run(function()
 				end))
 
 				bedwars.KnockbackUtil.applyKnockback = function(root, mass, dir, knockback, ...)
+					if type(old) ~= 'function' then return end
 					local chance = rand:NextNumber(0, 100)
 					chance = math.floor(chance)
 					if Mode.Value == 'Normal' then
@@ -3543,7 +3550,9 @@ run(function()
 					return old(root, mass, dir, knockback, ...)
 				end
 			else
-				bedwars.KnockbackUtil.applyKnockback = old
+				if bedwars.KnockbackUtil and type(old) == 'function' then
+					bedwars.KnockbackUtil.applyKnockback = old
+				end
 				old = nil
 			end
 		end
@@ -33237,13 +33246,14 @@ run(function()
 		Function = function(callback)
 			if callback then
 				local util = findKnockbackUtil()
-				if not util then
+				if not util or type(util.applyKnockback) ~= 'function' then
 					notif('KnockbackDisplace', 'Failed to hook knockback!', 3)
 					KnockbackDisplace:Toggle()
 					return
 				end
 				originalApplyKnockback = util.applyKnockback
 				util.applyKnockback = function(hrp, mass, sourcePos, modifier)
+					if type(originalApplyKnockback) ~= 'function' then return end
 					local dir = KBDirection.Value
 					if dir == 'Default' then
 						return originalApplyKnockback(hrp, mass, sourcePos, modifier)

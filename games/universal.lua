@@ -590,7 +590,9 @@ run(function()
 			for _, v in whitelist.data.WhitelistedUsers do
 				if v.tags then
 					for _, tag in v.tags do
-						tag.color = Color3.fromRGB(unpack(tag.color))
+						if typeof(tag.color) ~= 'Color3' then
+							tag.color = type(tag.color) == 'table' and Color3.fromRGB(unpack(tag.color)) or Color3.new(1, 1, 1)
+						end
 					end
 				end
 			end
