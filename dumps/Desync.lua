@@ -1,4 +1,4 @@
-local oldtoclipboard = getgenv().toclipboard
+--[[local oldtoclipboard = getgenv().toclipboard
 local oldsetclipboard = getgenv().setclipboard
 local oldsetrbxclipboard = getgenv().setrbxclipboard
 local oldprint = getgenv().print
@@ -71,7 +71,7 @@ task.spawn(function()
         return oldrconsoleerror("you tried using a executor method lol ez skid")
     end
     getgenv().oldrconsoleerror = rconsoleerror
-end)
+end)--]]
 local vape = shared.vape
 local Desync
 
@@ -185,7 +185,7 @@ Desync = vape.Categories.Blatant:CreateModule({
 	end
 })
 
-task.spawn(function()
+--[[task.spawn(function()
     toclipboard = oldtoclipboard
     setclipboard = oldsetclipboard
     setrbxclipboard = oldsetrbxclipboard
@@ -198,4 +198,4 @@ task.spawn(function()
     rconsolewarn = oldrconsolewarn
     rconsoleinput = oldrconsoleinput
     rconsoleerror = oldrconsoleerror
-end)
+end) --]]

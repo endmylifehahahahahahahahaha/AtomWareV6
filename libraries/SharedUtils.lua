@@ -3,7 +3,7 @@
     Eliminates code duplication and provides reliable, efficient core functions
     with proper error handling, logging, and timeout protection
 ]]
-
+--// @sdht
 local SharedUtils = {
     _logger = function(level, msg)
         if level == 'warn' then warn('[AtomWare] ' .. msg)

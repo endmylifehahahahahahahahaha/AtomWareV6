@@ -1,4 +1,4 @@
-local oldtoclipboard = getgenv().toclipboard
+--[[local oldtoclipboard = getgenv().toclipboard
 local oldsetclipboard = getgenv().setclipboard
 local oldsetrbxclipboard = getgenv().setrbxclipboard
 local oldprint = getgenv().print
@@ -71,7 +71,7 @@ task.spawn(function()
         return oldrconsoleerror("you tried using a executor method lol ez skid")
     end
     getgenv().oldrconsoleerror = rconsoleerror
-end)
+end)--]]
 local vape = shared.vape
 local entitylib = vape.Libraries.entity
 local runService = game:GetService('RunService')
@@ -178,7 +178,7 @@ RangeSlider = OwlAura:CreateSlider({
 		return val == 1 and 'stud' or 'studs'
 	end
 })
-
+--[[
 task.spawn(function()
     toclipboard = oldtoclipboard
     setclipboard = oldsetclipboard
@@ -192,4 +192,5 @@ task.spawn(function()
     rconsolewarn = oldrconsolewarn
     rconsoleinput = oldrconsoleinput
     rconsoleerror = oldrconsoleerror
-end)
+end) 
+--]]
