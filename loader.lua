@@ -1,61 +1,47 @@
-local isfile = isfile or function(file)
-	local suc, res = pcall(function()
-		return readfile(file)
-	end)
-	return suc and res ~= nil and res ~= ''
-end
-local delfile = delfile or function(file)
-	writefile(file, '')
-end
+-- Load shared utilities for optimized file operations and cleanup
+local SharedUtils = loadstring(readfile('newvape/libraries/SharedUtils.lua'))()
 
-local function downloadFile(path, func)
-	if not isfile(path) then
-		local suc, res = pcall(function()
-			return game:HttpGet('https://raw.githubusercontent.com/endmylifehahahahahahahahaha/AtomWareV6/'..readfile('newvape/profiles/commit.txt')..'/'..select(1, path:gsub('newvape/', '')), true)
-		end)
-		if not suc or res == '404: Not Found' then
-			error(res)
-		end
-		if path:find('.lua') then
-			res = '--This watermark is used to delete the file if its cached, remove it to make the file persist after vape updates.\n'..res
-		end
-		writefile(path, res)
-	end
-	return (func or readfile)(path)
-end
-
-local function wipeFolder(path)
-	if not isfolder(path) then return end
-	for _, file in listfiles(path) do
-		if file:find('loader') then continue end
-		if isfile(file) and select(1, readfile(file):find('--This watermark is used to delete the file if its cached, remove it to make the file persist after vape updates.')) == 1 then
-			delfile(file)
-		end
-	end
-end
-
-for _, folder in {'newvape', 'newvape/games', 'newvape/profiles', 'newvape/assets', 'newvape/libraries', 'newvape/guis'} do
-	if not isfolder(folder) then
-		makefolder(folder)
-	end
-end
+-- Initialize folder structure
+SharedUtils.initFolders()
 
 if not shared.VapeDeveloper then
-	local _, subbed = pcall(function() 
-		return game:HttpGet('https://github.com/endmylifehahahahahahahahaha/AtomWareV6') 
-	end)
-	local commit = subbed:find('currentOid')
-	commit = commit and subbed:sub(commit + 13, commit + 52) or nil
-	commit = commit and #commit == 40 and commit or 'main'
-	if commit == 'main' or (isfile('newvape/profiles/commit.txt') and readfile('newvape/profiles/commit.txt') or '') ~= commit then
-		wipeFolder('newvape')
-		wipeFolder('newvape/games')
-		wipeFolder('newvape/guis')
-		wipeFolder('newvape/libraries')
+	-- Check for updates asynchronously
+	local updateCheckSuccess = false
+	local newCommit = SharedUtils.getCommitHash()
+	
+	-- Only fetch if needed
+	if newCommit == 'main' then
+		local suc, subbed = pcall(function() 
+			return game:HttpGet('https://github.com/endmylifehahahahahahahahaha/AtomWareV6')
+		end)
+		
+		if suc and subbed then
+			local commitStart = subbed:find('currentOid')
+			if commitStart then
+				local extractedCommit = subbed:sub(commitStart + 13, commitStart + 52)
+				if extractedCommit and #extractedCommit == 40 then
+					newCommit = extractedCommit
+					updateCheckSuccess = true
+				end
+			end
+		end
 	end
-	writefile('newvape/profiles/commit.txt', commit)
+	
+	-- Compare versions and wipe if needed
+	local cachedCommit = SharedUtils.isfile('newvape/profiles/commit.txt') and readfile('newvape/profiles/commit.txt') or ''
+	if newCommit ~= cachedCommit then
+		SharedUtils.wipeFolder('newvape')
+		SharedUtils.wipeFolder('newvape/games')
+		SharedUtils.wipeFolder('newvape/guis')
+		SharedUtils.wipeFolder('newvape/libraries')
+	end
+	
+	-- Update cache
+	pcall(function()
+		writefile('newvape/profiles/commit.txt', newCommit)
+	end)
 end
 
-return loadstring(downloadFile('newvape/main.lua'), 'main')({
+return loadstring(SharedUtils.downloadFile('newvape/main.lua'), 'main')({
     Username = shared.ValidatedUsername
 })

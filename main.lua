@@ -2,7 +2,8 @@
 repeat task.wait() until game:IsLoaded()
 if shared.vape then shared.vape:Uninject() end
 
-
+-- Load shared utilities early for optimized operations
+local SharedUtils = loadstring(readfile('newvape/libraries/SharedUtils.lua'))()
 
 if identifyexecutor then
 	if table.find({'Wave', 'Seliware', 'Volt'}, ({identifyexecutor()})[1]) then
@@ -32,82 +33,16 @@ local loadstring = function(...)
 	return res
 end
 local queue_on_teleport = queue_on_teleport or function() end
-local isfile = isfile or function(file)
-	local suc, res = pcall(function()
-		return readfile(file)
-	end)
-	return suc and res ~= nil and res ~= ''
-end
 local cloneref = cloneref or function(obj)
 	return obj
 end
 local playersService = cloneref(game:GetService('Players'))
 local httpService = cloneref(game:GetService('HttpService'))
 
-local function downloadFile(path, func)
-	if not isfile(path) then
-		local res
-		local success = false
-		for attempt = 1, 3 do
-			local suc, result = pcall(function()
-				return game:HttpGet('https://raw.githubusercontent.com/endmylifehahahahahahahahaha/AtomWareV6/' .. readfile('newvape/profiles/commit.txt') .. '/' .. select(1, path:gsub('newvape/', '')), true)
-			end)
-			if suc and result ~= '404: Not Found' then
-				res = result
-				success = true
-				break
-			end
-			task.wait(1)
-		end
-		if not success then
-			error('Failed to download ' .. path .. ' after 3 attempts')
-		end
-		if path:find('.lua') then
-			res = '--This watermark is used to delete the file if its cached, remove it to make the file persist after vape updates.\n' .. res
-		end
-		writefile(path, res)
-	end
-	return (func or readfile)(path)
-end
-
-local function migrateProfiles()
-	if isfile('newvape/profiles/migrated_placeid.txt') then return end
-
-    local oldId = tostring(game.GameId)
-    local newId = tostring(game.PlaceId)
-
-	if oldId == newId then
-		pcall(writefile, 'newvape/profiles/migrated_placeid.txt', 'done')
-		return
-	end
-
-	local suffix = oldId .. '.txt'
-	for _, path in ipairs(listfiles('newvape/profiles')) do
-		local name = path:gsub('\\', '/')
-		if name:sub(-#suffix) == suffix then
-			local newPath = name:sub(1, -#suffix - 1) .. newId .. '.txt'
-			if not isfile(newPath) then
-				pcall(function() writefile(newPath, readfile(path)) end)
-			end
-		end
-	end
-
-	if isfolder('newvape/profiles/premade') then
-		for _, path in ipairs(listfiles('newvape/profiles/premade')) do
-			local name = path:gsub('\\', '/')
-			if name:sub(-#suffix) == suffix then
-				local newPath = name:sub(1, -#suffix - 1) .. newId .. '.txt'
-				if not isfile(newPath) then
-					pcall(function() writefile(newPath, readfile(path)) end)
-				end
-			end
-		end
-	end
-
-	pcall(writefile, 'newvape/profiles/migrated_placeid.txt', 'done')
-end
-
-pcall(migrateProfiles)
+-- Migrate profiles from old game ID to new game ID (optimized version)
+pcall(function()
+	SharedUtils.migrateProfiles(tonumber(game.GameId) or 0, tonumber(game.PlaceId) or 0)
+end)
 
 local function finishLoading()
 	vape.Init = nil
@@ -156,7 +91,7 @@ local function finishLoading()
 	end
 end
 
-if not isfile('newvape/profiles/gui.txt') then
+if not SharedUtils.isfile('newvape/profiles/gui.txt') then
 	writefile('newvape/profiles/gui.txt', 'new')
 end
 local gui = readfile('newvape/profiles/gui.txt')
@@ -165,7 +100,7 @@ if not isfolder('newvape/assets/' .. gui) then
 	makefolder('newvape/assets/' .. gui)
 end
 
-local guiSource = downloadFile('newvape/guis/' .. gui .. '.lua')
+local guiSource = SharedUtils.downloadFile('newvape/guis/' .. gui .. '.lua')
 local guiFunc, guiErr = loadstring(guiSource, 'gui')
 if not guiFunc then
 	local errMsg = tostring(guiErr)
@@ -233,18 +168,16 @@ if getgenv().Closet then
 end
 
 if not shared.VapeIndependent then
-	loadstring(downloadFile('newvape/games/universal.lua'), 'universal')()
+	loadstring(SharedUtils.downloadFile('newvape/games/universal.lua'), 'universal')()
 	local gameFileId = (game.GameId == 2619619496) and (game.PlaceId == 6872265039 and 6872265039 or 6872274481) or game.PlaceId
-	if isfile('newvape/games/' .. gameFileId .. '.lua') then
-		loadstring(downloadFile('newvape/games/' .. gameFileId .. '.lua'), tostring(gameFileId))(...)
+	if SharedUtils.isfile('newvape/games/' .. gameFileId .. '.lua') then
+		loadstring(SharedUtils.downloadFile('newvape/games/' .. gameFileId .. '.lua'), tostring(gameFileId))(...)
 	else
 		if not shared.VapeDeveloper then
-			local suc, res = pcall(function()
-				return game:HttpGet('https://raw.githubusercontent.com/endmylifehahahahahahahahaha/AtomWareV6/' .. readfile('newvape/profiles/commit.txt') .. '/games/' .. gameFileId .. '.lua', true)
+			pcall(function()
+				SharedUtils.downloadFile('newvape/games/' .. gameFileId .. '.lua')
+				loadstring(SharedUtils.downloadFile('newvape/games/' .. gameFileId .. '.lua'), tostring(gameFileId))(...)
 			end)
-			if suc and res ~= '404: Not Found' then
-				loadstring(downloadFile('newvape/games/' .. gameFileId .. '.lua'), tostring(gameFileId))(...)
-			end
 		end
 	end
 	finishLoading()

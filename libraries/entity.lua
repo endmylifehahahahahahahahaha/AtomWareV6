@@ -54,23 +54,31 @@ local function getMousePosition()
 end
 
 local function loopClean(tbl)
-	for i, v in tbl do
-		if type(v) == 'table' then
-			loopClean(v)
-		end
-		tbl[i] = nil
-	end
+	if not tbl or type(tbl) ~= 'table' then return end
+	table.clear(tbl)
 end
 
 local function waitForChildOfType(obj, name, timeout, prop)
-	local checktick = tick() + timeout
-	local returned
+	if not obj or not name or not timeout then return nil end
+	
+	timeout = math.max(0, timeout or 10)
+	local startTime = tick()
+	
 	repeat
-		returned = prop and obj[name] or obj:FindFirstChildOfClass(name)
-		if returned or checktick < tick() then break end
+		local child
+		if prop then
+			child = obj[name]
+		else
+			pcall(function()
+				child = obj:FindFirstChild(name)
+			end)
+		end
+		
+		if child then return child end
+		if tick() - startTime > timeout then return nil end
+		
 		task.wait()
 	until false
-	return returned
 end
 
 local function ensureHumanoidScaleValues(hum)
@@ -136,104 +144,170 @@ entitylib.Wallcheck = function(origin, position, ignoreobject)
 end
 
 entitylib.EntityMouse = function(entitysettings)
-	if entitylib.isAlive then
-		local mouseLocation, sortingTable = entitysettings.MouseOrigin or getMousePosition(), {}
-		for _, v in entitylib.List do
-			if not entitysettings.Players and v.Player then continue end
-			if not entitysettings.NPCs and v.NPC then continue end
-			if not v.Targetable then continue end
-			local position, vis = gameCamera.WorldToViewportPoint(gameCamera, v[entitysettings.Part].Position)
-			if not vis then continue end
-			local mag = (mouseLocation - Vector2.new(position.x, position.y)).Magnitude
-			if mag > entitysettings.Range then continue end
-			if entitylib.isVulnerable(v) then
-				table.insert(sortingTable, {
-					Entity = v,
-					Magnitude = v.Target and -1 or mag
-				})
-			end
-		end
-
-		table.sort(sortingTable, entitysettings.Sort or function(a, b)
-			return a.Magnitude < b.Magnitude
-		end)
-
-		for _, v in sortingTable do
-			if entitysettings.Wallcheck then
-				if entitylib.Wallcheck(entitysettings.Origin, v.Entity[entitysettings.Part].Position, entitysettings.Wallcheck) then continue end
-			end
-			table.clear(entitysettings)
-			table.clear(sortingTable)
-			return v.Entity
-		end
-		table.clear(sortingTable)
+	if not entitysettings or not entitylib.isAlive then
+		if entitysettings then table.clear(entitysettings) end
+		return nil
 	end
-	table.clear(entitysettings)
+	
+	local mouseLocation, sortingTable = entitysettings.MouseOrigin or getMousePosition(), {}
+	
+	-- Early exit if we have no entities to check
+	if #entitylib.List == 0 then
+		table.clear(entitysettings)
+		return nil
+	end
+	
+	for _, v in ipairs(entitylib.List) do
+		-- Validate entity and settings
+		if not v or not v[entitysettings.Part] then continue end
+		if not entitysettings.Players and v.Player then continue end
+		if not entitysettings.NPCs and v.NPC then continue end
+		if not v.Targetable then continue end
+		
+		local position, vis = gameCamera:WorldToViewportPoint(v[entitysettings.Part].Position)
+		if not vis then continue end
+		
+		local mag = (mouseLocation - Vector2.new(position.x, position.y)).Magnitude
+		if mag > (entitysettings.Range or math.huge) then continue end
+		
+		if entitylib.isVulnerable(v) then
+			table.insert(sortingTable, {
+				Entity = v,
+				Magnitude = v.Target and -1 or mag
+			})
+		end
+	end
+
+	table.sort(sortingTable, entitysettings.Sort or function(a, b)
+		return a.Magnitude < b.Magnitude
+	end)
+
+	for _, data in ipairs(sortingTable) do
+		if entitysettings.Wallcheck then
+			if entitylib.Wallcheck(entitysettings.Origin, data.Entity[entitysettings.Part].Position, entitysettings.Wallcheck) then 
+				continue 
+			end
+		end
+		loopClean(entitysettings)
+		loopClean(sortingTable)
+		return data.Entity
+	end
+	
+	loopClean(sortingTable)
+	loopClean(entitysettings)
+	return nil
 end
 
 entitylib.EntityPosition = function(entitysettings)
-	if entitylib.isAlive then
-		local localPosition, sortingTable = entitysettings.Origin or entitylib.character.HumanoidRootPart.Position, {}
-		for _, v in entitylib.List do
-			if not entitysettings.Players and v.Player then continue end
-			if not entitysettings.NPCs and v.NPC then continue end
-			if not v.Targetable then continue end
-			local mag = (v[entitysettings.Part].Position - localPosition).Magnitude
-			if mag > entitysettings.Range then continue end
-			if entitylib.isVulnerable(v) then
-				table.insert(sortingTable, {
-					Entity = v,
-					Magnitude = v.Target and -1 or mag
-				})
-			end
-		end
-
-		table.sort(sortingTable, entitysettings.Sort or function(a, b)
-			return a.Magnitude < b.Magnitude
-		end)
-
-		for _, v in sortingTable do
-			if entitysettings.Wallcheck then
-				if entitylib.Wallcheck(localPosition, v.Entity[entitysettings.Part].Position, entitysettings.Wallcheck) then continue end
-			end
-			table.clear(entitysettings)
-			table.clear(sortingTable)
-			return v.Entity
-		end
-		table.clear(sortingTable)
+	if not entitysettings or not entitylib.isAlive then
+		if entitysettings then table.clear(entitysettings) end
+		return nil
 	end
-	table.clear(entitysettings)
+	
+	local localPosition = entitysettings.Origin or (entitylib.character and entitylib.character.HumanoidRootPart and entitylib.character.HumanoidRootPart.Position)
+	if not localPosition then 
+		table.clear(entitysettings)
+		return nil 
+	end
+	
+	local sortingTable = {}
+	
+	-- Early exit if we have no entities
+	if #entitylib.List == 0 then
+		table.clear(entitysettings)
+		return nil
+	end
+	
+	for _, v in ipairs(entitylib.List) do
+		if not v or not v[entitysettings.Part] then continue end
+		if not entitysettings.Players and v.Player then continue end
+		if not entitysettings.NPCs and v.NPC then continue end
+		if not v.Targetable then continue end
+		
+		local mag = (v[entitysettings.Part].Position - localPosition).Magnitude
+		if mag > (entitysettings.Range or math.huge) then continue end
+		
+		if entitylib.isVulnerable(v) then
+			table.insert(sortingTable, {
+				Entity = v,
+				Magnitude = v.Target and -1 or mag
+			})
+		end
+	end
+
+	table.sort(sortingTable, entitysettings.Sort or function(a, b)
+		return a.Magnitude < b.Magnitude
+	end)
+
+	for _, data in ipairs(sortingTable) do
+		if entitysettings.Wallcheck then
+			if entitylib.Wallcheck(localPosition, data.Entity[entitysettings.Part].Position, entitysettings.Wallcheck) then 
+				continue 
+			end
+		end
+		loopClean(entitysettings)
+		loopClean(sortingTable)
+		return data.Entity
+	end
+	
+	loopClean(sortingTable)
+	loopClean(entitysettings)
+	return nil
 end
 
 entitylib.AllPosition = function(entitysettings)
 	local returned = {}
-	if entitylib.isAlive then
-		local localPosition, sortingTable = entitysettings.Origin or entitylib.character.HumanoidRootPart.Position, {}
-		for _, v in entitylib.List do
-			if not entitysettings.Players and v.Player then continue end
-			if not entitysettings.NPCs and v.NPC then continue end
-			if not v.Targetable then continue end
-			local mag = (v[entitysettings.Part].Position - localPosition).Magnitude
-			if mag > entitysettings.Range then continue end
-			if entitylib.isVulnerable(v) then
-				table.insert(sortingTable, {Entity = v, Magnitude = v.Target and -1 or mag})
-			end
-		end
-
-		table.sort(sortingTable, entitysettings.Sort or function(a, b)
-			return a.Magnitude < b.Magnitude
-		end)
-
-		for _, v in sortingTable do
-			if entitysettings.Wallcheck then
-				if entitylib.Wallcheck(localPosition, v.Entity[entitysettings.Part].Position, entitysettings.Wallcheck) then continue end
-			end
-			table.insert(returned, v.Entity)
-			if #returned >= (entitysettings.Limit or math.huge) then break end
-		end
-		table.clear(sortingTable)
+	
+	if not entitysettings or not entitylib.isAlive then
+		if entitysettings then table.clear(entitysettings) end
+		return returned
 	end
-	table.clear(entitysettings)
+	
+	local localPosition = entitysettings.Origin or (entitylib.character and entitylib.character.HumanoidRootPart and entitylib.character.HumanoidRootPart.Position)
+	if not localPosition then 
+		table.clear(entitysettings)
+		return returned 
+	end
+	
+	local sortingTable = {}
+	local maxLimit = entitysettings.Limit or math.huge
+	
+	-- Early exit if no entities
+	if #entitylib.List == 0 then
+		table.clear(entitysettings)
+		return returned
+	end
+	
+	for _, v in ipairs(entitylib.List) do
+		if not v or not v[entitysettings.Part] then continue end
+		if not entitysettings.Players and v.Player then continue end
+		if not entitysettings.NPCs and v.NPC then continue end
+		if not v.Targetable then continue end
+		
+		local mag = (v[entitysettings.Part].Position - localPosition).Magnitude
+		if mag > (entitysettings.Range or math.huge) then continue end
+		
+		if entitylib.isVulnerable(v) then
+			table.insert(sortingTable, {Entity = v, Magnitude = v.Target and -1 or mag})
+		end
+	end
+
+	table.sort(sortingTable, entitysettings.Sort or function(a, b)
+		return a.Magnitude < b.Magnitude
+	end)
+
+	for _, data in ipairs(sortingTable) do
+		if entitysettings.Wallcheck then
+			if entitylib.Wallcheck(localPosition, data.Entity[entitysettings.Part].Position, entitysettings.Wallcheck) then 
+				continue 
+			end
+		end
+		table.insert(returned, data.Entity)
+		if #returned >= maxLimit then break end
+	end
+	
+	loopClean(sortingTable)
+	loopClean(entitysettings)
 	return returned
 end
 
@@ -256,6 +330,12 @@ entitylib.addEntity = function(char, plr, teamfunc)
 		local head = char:WaitForChild('Head', 10) or humrootpart
 
 		if hum and humrootpart then
+			-- Safe HipHeight calculation with nil checks
+			local rigType = hum.RigType
+			local rigOffset = (rigType == Enum.HumanoidRigType.R6) and 2 or 0
+			local rootSize = humrootpart.Size
+			local hipHeight = hum.HipHeight + (rootSize and rootSize.Y / 2 or 0) + rigOffset
+			
 			local entity = {
 				Connections = {},
 				Character = char,
@@ -263,7 +343,7 @@ entitylib.addEntity = function(char, plr, teamfunc)
 				Head = head,
 				Humanoid = hum,
 				HumanoidRootPart = humrootpart,
-				HipHeight = hum.HipHeight + (humrootpart.Size.Y / 2) + (hum.RigType == Enum.HumanoidRigType.R6 and 2 or 0),
+				HipHeight = hipHeight,
 				MaxHealth = hum.MaxHealth,
 				NPC = plr == nil,
 				Player = plr,
@@ -316,31 +396,41 @@ entitylib.removeEntity = function(char, localcheck)
 	if localcheck then
 		if entitylib.isAlive then
 			entitylib.isAlive = false
-			for _, v in entitylib.character.Connections do
-				v:Disconnect()
+			-- Safely disconnect all connections
+			if entitylib.character and entitylib.character.Connections then
+				for _, connection in ipairs(entitylib.character.Connections) do
+					if connection and typeof(connection) == 'RBXScriptConnection' then
+						pcall(function() connection:Disconnect() end)
+					end
+				end
+				table.clear(entitylib.character.Connections)
 			end
-			table.clear(entitylib.character.Connections)
 			entitylib.Events.LocalRemoved:Fire(entitylib.character)
-			--table.clear(entitylib.character)
 		end
 		return
 	end
 
-	if char then
-		if entitylib.EntityThreads[char] then
-			task.cancel(entitylib.EntityThreads[char])
-			entitylib.EntityThreads[char] = nil
-		end
+	if not char then return end
+	
+	-- Cancel the entity spawn task if it's still running
+	if entitylib.EntityThreads[char] then
+		pcall(task.cancel, entitylib.EntityThreads[char])
+		entitylib.EntityThreads[char] = nil
+	end
 
-		local entity, ind = entitylib.getEntity(char)
-		if ind then
-			for _, v in entity.Connections do
-				v:Disconnect()
+	local entity, ind = entitylib.getEntity(char)
+	if entity and ind then
+		-- Safely disconnect all entity connections
+		if entity.Connections then
+			for _, connection in ipairs(entity.Connections) do
+				if connection and typeof(connection) == 'RBXScriptConnection' then
+					pcall(function() connection:Disconnect() end)
+				end
 			end
 			table.clear(entity.Connections)
-			table.remove(entitylib.List, ind)
-			entitylib.Events.EntityRemoved:Fire(entity)
 		end
+		table.remove(entitylib.List, ind)
+		entitylib.Events.EntityRemoved:Fire(entity)
 	end
 end
 
@@ -350,41 +440,68 @@ entitylib.refreshEntity = function(char, plr)
 end
 
 entitylib.addPlayer = function(plr)
+	if not plr then return end
+	
+	-- Add existing character if present
 	if plr.Character then
 		entitylib.refreshEntity(plr.Character, plr)
 	end
-	entitylib.PlayerConnections[plr] = {
-		plr.CharacterAdded:Connect(function(char)
+	
+	-- Set up connection table for this player
+	local connections = {}
+	
+	-- Character added
+	table.insert(connections, plr.CharacterAdded:Connect(function(char)
+		if char then
 			entitylib.refreshEntity(char, plr)
-		end),
-		plr.CharacterRemoving:Connect(function(char)
+		end
+	end))
+	
+	-- Character removing
+	table.insert(connections, plr.CharacterRemoving:Connect(function(char)
+		if char then
 			entitylib.removeEntity(char, plr == lplr)
-		end),
-		plr:GetPropertyChangedSignal('Team'):Connect(function()
-			for _, v in entitylib.List do
-				if v.Targetable ~= entitylib.targetCheck(v) then
-					entitylib.refreshEntity(v.Character, v.Player)
-				end
+		end
+	end))
+	
+	-- Team changed
+	table.insert(connections, plr:GetPropertyChangedSignal('Team'):Connect(function()
+		-- Update targetability for this player's entities
+		for _, v in ipairs(entitylib.List) do
+			if v.Player == plr and v.Targetable ~= entitylib.targetCheck(v) then
+				entitylib.refreshEntity(v.Character, v.Player)
 			end
-
-			if plr == lplr then
-				entitylib.start()
-			else
-				entitylib.refreshEntity(plr.Character, plr)
-			end
-		end)
-	}
+		end
+		
+		-- Refresh all if local player changed team
+		if plr == lplr then
+			entitylib.start()
+		end
+	end))
+	
+	entitylib.PlayerConnections[plr] = connections
 end
 
 entitylib.removePlayer = function(plr)
+	if not plr then return end
+	
+	-- Disconnect all player event connections safely
 	if entitylib.PlayerConnections[plr] then
-		for _, v in entitylib.PlayerConnections[plr] do
-			v:Disconnect()
+		local connections = entitylib.PlayerConnections[plr]
+		for _, connection in ipairs(connections) do
+			if connection and typeof(connection) == 'RBXScriptConnection' then
+				pcall(function() connection:Disconnect() end)
+			end
 		end
-		table.clear(entitylib.PlayerConnections[plr])
+		table.clear(connections)
 		entitylib.PlayerConnections[plr] = nil
 	end
-	entitylib.removeEntity(plr)
+	
+	-- Remove player's character from entity list
+	local entity, ind = entitylib.getEntity(plr)
+	if entity and ind then
+		entitylib.removeEntity(entity.Character, false)
+	end
 end
 
 entitylib.start = function()
@@ -407,27 +524,49 @@ entitylib.start = function()
 end
 
 entitylib.stop = function()
-	for _, v in entitylib.Connections do
-		v:Disconnect()
-	end
-	for _, v in entitylib.PlayerConnections do
-		for _, v2 in v do
-			v2:Disconnect()
+	if not entitylib.Running then return end
+	
+	-- Disconnect all global connections
+	for _, connection in ipairs(entitylib.Connections) do
+		if connection and typeof(connection) == 'RBXScriptConnection' then
+			pcall(function() connection:Disconnect() end)
 		end
-		table.clear(v)
 	end
-	entitylib.removeEntity(nil, true)
-	local cloned = table.clone(entitylib.List)
-	for _, v in cloned do
-		entitylib.removeEntity(v.Character)
-	end
-	for _, v in entitylib.EntityThreads do
-		task.cancel(v)
+	table.clear(entitylib.Connections)
+	
+	-- Disconnect all player connections
+	for plr, connections in pairs(entitylib.PlayerConnections) do
+		if connections and type(connections) == 'table' then
+			for _, connection in ipairs(connections) do
+				if connection and typeof(connection) == 'RBXScriptConnection' then
+					pcall(function() connection:Disconnect() end)
+				end
+			end
+			table.clear(connections)
+		end
 	end
 	table.clear(entitylib.PlayerConnections)
-	table.clear(entitylib.EntityThreads)
-	table.clear(entitylib.Connections)
+	
+	-- Remove local player entity
+	entitylib.removeEntity(nil, true)
+	
+	-- Remove all other entities
+	local cloned = table.clone(entitylib.List)
+	for _, v in ipairs(cloned) do
+		if v and v.Character then
+			entitylib.removeEntity(v.Character, false)
+		end
+	end
 	table.clear(cloned)
+	
+	-- Cancel all pending entity spawn tasks
+	for char, taskId in pairs(entitylib.EntityThreads) do
+		if taskId then
+			pcall(task.cancel, taskId)
+		end
+		entitylib.EntityThreads[char] = nil
+	end
+	
 	entitylib.Running = false
 end
 
