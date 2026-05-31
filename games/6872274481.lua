@@ -457,6 +457,17 @@ local function waitForChildOfType(obj, name, timeout, prop)
 	return returned
 end
 
+local function ensureHumanoidScaleValues(hum)
+	for _, name in {'BodyDepthScale', 'BodyHeightScale', 'BodyWidthScale', 'HeadScale', 'BodyTypeScale', 'BodyProportionScale'} do
+		if not hum:FindFirstChild(name) then
+			local value = Instance.new('NumberValue')
+			value.Name = name
+			value.Value = (name == 'BodyTypeScale' or name == 'BodyProportionScale') and 0 or 1
+			value.Parent = hum
+		end
+	end
+end
+
 local frictionTable, oldfrict = {}, {}
 local frictionConnection
 local frictionState
@@ -695,6 +706,9 @@ run(function()
 			local hum, humrootpart, head
 			if plr then
 				hum = waitForChildOfType(char, 'Humanoid', 10)
+				if plr == lplr and hum then
+					ensureHumanoidScaleValues(hum)
+				end
 				humrootpart = hum and waitForChildOfType(hum, 'RootPart', workspace.StreamingEnabled and 9e9 or 10, true)
 				head = char:WaitForChild('Head', 10) or humrootpart
 			else
@@ -5463,6 +5477,11 @@ run(function()
                 local _cachedSwordType = nil
                 local _cachedIsClaw = false
                 local _swingCooldown = 0
+                local _lastRangeUpdate = 0
+                local _lastVisualUpdate = 0
+                local _lastTargetScan = 0
+                local _cachedSwingTargets = {}
+                local _cachedAttackTargets = {}
 
                 repeat
                     if AttackCheck and AttackCheck.Enabled then
@@ -5482,11 +5501,13 @@ run(function()
                         end
                     end
 
-                    pcall(function()
+                    local now = tick()
+                    if now - _lastRangeUpdate >= 1 / 30 then
+                        _lastRangeUpdate = now
                         if entitylib.isAlive and entitylib.character.HumanoidRootPart and RangeCirclePart then
                             RangeCirclePart.Position = entitylib.character.HumanoidRootPart.Position - Vector3.new(0, entitylib.character.Humanoid.HipHeight, 0)
                         end
-                    end)
+                    end
 
                     table.clear(attacked)
                     local sword, meta = getAttackData()
@@ -5508,15 +5529,22 @@ run(function()
                         local flatLV = entitylib.character.RootPart.CFrame.LookVector * Vector3.new(1, 0, 1)
                         local localfacing = flatLV.Magnitude > 0.001 and flatLV.Unit or entitylib.character.RootPart.CFrame.RightVector
                         local maxAngle = math.rad(AngleSlider.Value) / 2
+                        local minDot = math.cos(maxAngle)
                         local _cachedPing = math.clamp(lplr:GetNetworkPing(), 0.03, 0.4)
-                        local swingPlrs, attackPlrs = gatherTargets(selfpos)
+                        local swingPlrs, attackPlrs
+                        if now - _lastTargetScan >= 1 / 30 then
+                            _lastTargetScan = now
+                            _cachedSwingTargets, _cachedAttackTargets = gatherTargets(selfpos)
+                        end
+                        swingPlrs, attackPlrs = _cachedSwingTargets, _cachedAttackTargets
 
                         local hasValidSwingTargets = false
                         local hasValidAttackTargets = false
 
 						for _, v in swingPlrs do
 							local flat = (v.RootPart.Position - selfpos) * Vector3.new(1, 0, 1)
-							if flat.Magnitude <= 1.0 or math.acos(math.clamp(localfacing:Dot(flat.Unit), -1, 1)) <= maxAngle then
+							local flatMag = flat.Magnitude
+							if flatMag <= 1.0 or localfacing:Dot(flat / flatMag) >= minDot then
 								hasValidSwingTargets = true
 								break
 							end
@@ -5524,7 +5552,8 @@ run(function()
 
 						for _, v in attackPlrs do
 							local flat = (v.RootPart.Position - selfpos) * Vector3.new(1, 0, 1)
-							if flat.Magnitude <= 1.0 or math.acos(math.clamp(localfacing:Dot(flat.Unit), -1, 1)) <= maxAngle then
+							local flatMag = flat.Magnitude
+							if flatMag <= 1.0 or localfacing:Dot(flat / flatMag) >= minDot then
 								hasValidAttackTargets = true
 								break
 							end
@@ -5548,7 +5577,8 @@ run(function()
                                 for _, v in attackPlrs do
                                     local delta = v.RootPart.Position - selfpos
                                     local flat = delta * Vector3.new(1, 0, 1)
-                                    if flat.Magnitude > 1.0 and math.acos(math.clamp(localfacing:Dot(flat.Unit), -1, 1)) > maxAngle then continue end
+                                    local flatMag = flat.Magnitude
+                                    if flatMag > 1.0 and localfacing:Dot(flat / flatMag) < minDot then continue end
 
                                     table.insert(attacked, {
                                         Entity = v,
@@ -5675,19 +5705,22 @@ run(function()
                         end
                     end
 
-                    pcall(function()
-                        for i, v in Boxes do
-                            v.Adornee = attacked[i] and attacked[i].Entity.RootPart or nil
-                            if v.Adornee then
-                                v.Color3 = Color3.fromHSV(attacked[i].Check.Hue, attacked[i].Check.Sat, attacked[i].Check.Value)
-                                v.Transparency = 1 - attacked[i].Check.Opacity
+                    if (#Boxes > 0 or #Particles > 0) and now - _lastVisualUpdate >= 1 / 30 then
+                        _lastVisualUpdate = now
+                        pcall(function()
+                            for i, v in Boxes do
+                                v.Adornee = attacked[i] and attacked[i].Entity.RootPart or nil
+                                if v.Adornee then
+                                    v.Color3 = Color3.fromHSV(attacked[i].Check.Hue, attacked[i].Check.Sat, attacked[i].Check.Value)
+                                    v.Transparency = 1 - attacked[i].Check.Opacity
+                                end
                             end
-                        end
-                        for i, v in Particles do
-                            v.Position = attacked[i] and attacked[i].Entity.RootPart.Position or Vector3.new(9e9, 9e9, 9e9)
-                            v.Parent = attacked[i] and gameCamera or nil
-                        end
-                    end)
+                            for i, v in Particles do
+                                v.Position = attacked[i] and attacked[i].Entity.RootPart.Position or Vector3.new(9e9, 9e9, 9e9)
+                                v.Parent = attacked[i] and gameCamera or nil
+                            end
+                        end)
+                    end
 
                     if Face and Face.Enabled and attacked[1] then
                         local vec = attacked[1].Entity.RootPart.Position * Vector3.new(1, 0, 1)
@@ -6242,6 +6275,12 @@ run(function()
 		return math.acos(math.clamp(facing:Dot(flat.Unit), -1, 1))
 	end
 
+	local function flatWithinAngle(selfpos, targetpos, facing, minDot)
+		local flat = (targetpos - selfpos) * Vector3.new(1, 0, 1)
+		local flatMag = flat.Magnitude
+		return flatMag < 0.001 or facing:Dot(flat / flatMag) >= minDot
+	end
+
 	local function flatFacing(rootCFrame)
 		local lv = rootCFrame.LookVector * Vector3.new(1, 0, 1)
 		if lv.Magnitude < 0.001 then return rootCFrame.RightVector * Vector3.new(1, 0, 1) end
@@ -6366,6 +6405,10 @@ run(function()
 				end
 
 				local swingCooldown = 0
+				local attacked = {}
+				local lastVisualUpdate = 0
+				local lastTargetScan = 0
+				local cachedTargets = {}
 				repeat
 					if AttackCheck and AttackCheck.Enabled then
 						local stunTime = lplr.Character and lplr.Character:GetAttribute('StunnedUntilTime')
@@ -6389,30 +6432,37 @@ run(function()
 						end
 					end
 
-					local attacked, sword, meta = {}, getAttackData()
+					table.clear(attacked)
+					local sword, meta = getAttackData()
 					Attacking = false
 					store.KillauraTarget = nil
 
 					if sword then
-						local plrs = entitylib.AllPosition({
-							Range = SwingRange.Value,
-							Wallcheck = Targets.Walls.Enabled or nil,
-							Part = 'RootPart',
-							Players = Targets.Players.Enabled,
-							NPCs = Targets.NPCs.Enabled,
-							Limit = MaxTargets.Value,
-							Sort = sortmethods[Sort.Value]
-						})
+						local now = tick()
+						if now - lastTargetScan >= 1 / 30 then
+							lastTargetScan = now
+							cachedTargets = entitylib.AllPosition({
+								Range = SwingRange.Value,
+								Wallcheck = Targets.Walls.Enabled or nil,
+								Part = 'RootPart',
+								Players = Targets.Players.Enabled,
+								NPCs = Targets.NPCs.Enabled,
+								Limit = MaxTargets.Value,
+								Sort = sortmethods[Sort.Value]
+							})
+						end
+						local plrs = cachedTargets
 
 						if #plrs > 0 then
 							switchItem(sword.tool, 0)
 							local selfpos = entitylib.character.RootPart.Position
 							local facing = flatFacing(entitylib.character.RootPart.CFrame)
 							local maxAngle = math.rad(AngleSlider.Value) / 2
+							local minDot = math.cos(maxAngle)
 
 							for _, v in plrs do
 								local delta = (v.RootPart.Position - selfpos)
-								if flatAngle(selfpos, v.RootPart.Position, facing) > maxAngle then continue end
+								if not flatWithinAngle(selfpos, v.RootPart.Position, facing, minDot) then continue end
 
 								table.insert(attacked, {
 									Entity = v,
@@ -6488,19 +6538,23 @@ run(function()
 						end
 					end
 
-					pcall(function()
-						for i, v in Boxes do
-							v.Adornee = attacked[i] and attacked[i].Entity.RootPart or nil
-							if v.Adornee then
-								v.Color3 = Color3.fromHSV(attacked[i].Check.Hue, attacked[i].Check.Sat, attacked[i].Check.Value)
-								v.Transparency = 1 - attacked[i].Check.Opacity
+					local now = tick()
+					if (#Boxes > 0 or #Particles > 0) and now - lastVisualUpdate >= 1 / 30 then
+						lastVisualUpdate = now
+						pcall(function()
+							for i, v in Boxes do
+								v.Adornee = attacked[i] and attacked[i].Entity.RootPart or nil
+								if v.Adornee then
+									v.Color3 = Color3.fromHSV(attacked[i].Check.Hue, attacked[i].Check.Sat, attacked[i].Check.Value)
+									v.Transparency = 1 - attacked[i].Check.Opacity
+								end
 							end
-						end
-						for i, v in Particles do
-							v.Position = attacked[i] and attacked[i].Entity.RootPart.Position or Vector3.new(9e9, 9e9, 9e9)
-							v.Parent = attacked[i] and gameCamera or nil
-						end
-					end)
+							for i, v in Particles do
+								v.Position = attacked[i] and attacked[i].Entity.RootPart.Position or Vector3.new(9e9, 9e9, 9e9)
+								v.Parent = attacked[i] and gameCamera or nil
+							end
+						end)
+					end
 
 					if Face and Face.Enabled and attacked[1] then
 						local vec = attacked[1].Entity.RootPart.Position * Vector3.new(1, 0, 1)

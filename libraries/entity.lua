@@ -249,14 +249,13 @@ entitylib.addEntity = function(char, plr, teamfunc)
 	if not char then return end
 	entitylib.EntityThreads[char] = task.spawn(function()
 		local hum = waitForChildOfType(char, 'Humanoid', 10)
+		if plr == lplr and hum then
+			ensureHumanoidScaleValues(hum)
+		end
 		local humrootpart = hum and waitForChildOfType(hum, 'RootPart', workspace.StreamingEnabled and 9e9 or 10, true)
 		local head = char:WaitForChild('Head', 10) or humrootpart
 
 		if hum and humrootpart then
-			if plr == lplr then
-				ensureHumanoidScaleValues(hum)
-			end
-
 			local entity = {
 				Connections = {},
 				Character = char,
