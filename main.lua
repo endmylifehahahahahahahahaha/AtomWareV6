@@ -33,6 +33,9 @@ local loadstring = function(...)
 	return res
 end
 local queue_on_teleport = queue_on_teleport or function() end
+local delfile = delfile or function(file)
+	writefile(file, '')
+end
 local cloneref = cloneref or function(obj)
 	return obj
 end
@@ -171,12 +174,12 @@ if not shared.VapeIndependent then
 	loadstring(SharedUtils.downloadFile('newvape/games/universal.lua'), 'universal')()
 	local gameFileId = (game.GameId == 2619619496) and (game.PlaceId == 6872265039 and 6872265039 or 6872274481) or game.PlaceId
 	if SharedUtils.isfile('newvape/games/' .. gameFileId .. '.lua') then
-		loadstring(SharedUtils.downloadFile('newvape/games/' .. gameFileId .. '.lua'), tostring(gameFileId))(...)
+		loadstring(SharedUtils.downloadFile('newvape/games/' .. gameFileId .. '.lua'), tostring(gameFileId))(args)
 	else
 		if not shared.VapeDeveloper then
 			pcall(function()
 				SharedUtils.downloadFile('newvape/games/' .. gameFileId .. '.lua')
-				loadstring(SharedUtils.downloadFile('newvape/games/' .. gameFileId .. '.lua'), tostring(gameFileId))(...)
+				loadstring(SharedUtils.downloadFile('newvape/games/' .. gameFileId .. '.lua'), tostring(gameFileId))(args)
 			end)
 		end
 	end
