@@ -207,6 +207,7 @@ end
 local function addMaid(object)
     object.Connections = {}
     function object:Clean(callback)
+        if callback == nil then return end
         if typeof(callback) == 'Instance' then
             table.insert(self.Connections, {
                 Disconnect = function()
@@ -217,6 +218,12 @@ local function addMaid(object)
         elseif type(callback) == 'function' then
             table.insert(self.Connections, {
                 Disconnect = callback
+            })
+        elseif type(callback) == 'thread' then
+            table.insert(self.Connections, {
+                Disconnect = function()
+                    pcall(task.cancel, callback)
+                end
             })
         else
             table.insert(self.Connections, callback)
@@ -2443,6 +2450,7 @@ components = {
 		
 		function optionapi:SetValue(value, pos, final)
 			if tonumber(value) == math.huge or value ~= value then return end
+			value = math.clamp(tonumber(value) or self.Value, optionsettings.Min, optionsettings.Max)
 			local check = self.Value ~= value
 			self.Value = value
 			tween:Tween(fill, uipallet.Tween, {
@@ -6524,7 +6532,7 @@ function mainapi:CreateLegit()
 			})
 			if not moduleapi.Enabled then
 				for _, v in moduleapi.Connections do
-					v:Disconnect()
+					pcall(function() v:Disconnect() end)
 				end
 				table.clear(moduleapi.Connections)
 			end

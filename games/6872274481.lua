@@ -5424,7 +5424,7 @@ run(function()
                                 AnimTween:Play()
                             end
                             if not started then
-                                task.wait(1 / UpdateRate.Value)
+                                task.wait(1 / math.clamp(UpdateRate.Value, 1, 60))
                             end
                         until (not Killaura.Enabled) or (not Animation.Enabled)
                     end)
@@ -5697,7 +5697,7 @@ run(function()
                     end
 
                     pcall(function() if RangeCirclePart ~= nil then RangeCirclePart.Parent = gameCamera end end)
-                    task.wait(1 / UpdateRate.Value)
+                    task.wait(1 / math.clamp(UpdateRate.Value, 1, 60))
                 until not Killaura.Enabled
             else
                 stopAutoShootLoop()
@@ -5780,7 +5780,7 @@ run(function()
         end
     })
     AngleSlider = Killaura:CreateSlider({Name = 'Max angle', Min = 1, Max = 360, Default = 360})
-    UpdateRate = Killaura:CreateSlider({Name = 'Update rate', Min = 1, Max = 120, Default = 60, Suffix = 'hz'})
+    UpdateRate = Killaura:CreateSlider({Name = 'Update rate', Min = 1, Max = 60, Default = 45, Suffix = 'hz'})
     MaxTargets = Killaura:CreateSlider({Name = 'Max targets', Min = 1, Max = 5, Default = 5})
     Sort = Killaura:CreateDropdown({Name = 'Target Mode', List = methods})
     Mouse = Killaura:CreateToggle({
@@ -6360,7 +6360,7 @@ run(function()
 								})
 								AnimTween:Play()
 							end
-							if not started then task.wait(1 / UpdateRate.Value) end
+							if not started then task.wait(1 / math.clamp(UpdateRate.Value, 1, 60)) end
 						until not Killaura.Enabled or not Animation.Enabled
 					end)
 				end
@@ -6507,7 +6507,7 @@ run(function()
 						entitylib.character.RootPart.CFrame = CFrame.lookAt(entitylib.character.RootPart.Position, Vector3.new(vec.X, entitylib.character.RootPart.Position.Y + 0.001, vec.Z))
 					end
 
-					task.wait(1 / UpdateRate.Value)
+					task.wait(1 / math.clamp(UpdateRate.Value, 1, 60))
 				until not Killaura.Enabled
 			else
 				store.KillauraTarget = nil
@@ -6547,7 +6547,7 @@ run(function()
 		Name = 'Swing time', Min = 0, Max = 0.5, Default = 0.42, Decimal = 100
 	})
 	AngleSlider = Killaura:CreateSlider({Name = 'Max angle', Min = 1, Max = 360, Default = 360})
-	UpdateRate = Killaura:CreateSlider({Name = 'Update rate', Min = 1, Max = 120, Default = 60, Suffix = 'hz'})
+	UpdateRate = Killaura:CreateSlider({Name = 'Update rate', Min = 1, Max = 60, Default = 45, Suffix = 'hz'})
 	MaxTargets = Killaura:CreateSlider({Name = 'Max targets', Min = 1, Max = 5, Default = 5})
 	Sort = Killaura:CreateDropdown({Name = 'Target Mode', List = methods})
 	Mouse = Killaura:CreateToggle({Name = 'Require mouse down'})
@@ -15992,7 +15992,7 @@ run(function()
 
 				local lockedPathBlock = nil
 				repeat
-					task.wait(1 / UpdateRate.Value)
+					task.wait(1 / math.clamp(UpdateRate.Value, 1, 60))
 					if not Breaker.Enabled then break end
 					if entitylib.isAlive then
 						local localPosition = entitylib.character.RootPart.Position
@@ -18440,7 +18440,7 @@ run(function()
 						end
 					end
 
-					task.wait(1 / UpdateRate.Value)
+					task.wait(1 / math.clamp(UpdateRate.Value, 1, 60))
 				until not KaidaKillaura.Enabled
 
 				isChargingAbility = false
