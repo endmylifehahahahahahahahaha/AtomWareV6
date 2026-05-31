@@ -34984,3 +34984,132 @@ run(function()
 		end
 	})
 end)
+
+-- ── OldTheme ──────────────────────────────────────────────────────────────────
+run(function()
+	local OldTheme
+	local atmosphere = lightingService:FindFirstChildOfClass('Atmosphere')
+
+	-- Snapshot original values at load time
+	local origSpecular    = lightingService.EnvironmentSpecularScale
+	local origDiffuse     = lightingService.EnvironmentDiffuseScale
+	local origLatitude    = lightingService.GeographicLatitude
+	local origOutdoor     = lightingService.OutdoorAmbient
+	local origShadows     = lightingService.GlobalShadows
+	local origBrightness  = lightingService.Brightness
+	local origTimeOfDay   = lightingService.TimeOfDay
+	local origClockTime   = lightingService.ClockTime
+	local origAmbient     = lightingService.Ambient
+	local origAtmDensity  = atmosphere and atmosphere.Density  or 0
+	local origAtmOffset   = atmosphere and atmosphere.Offset   or 0
+	local origAtmColor    = atmosphere and atmosphere.Color    or Color3.new(1,1,1)
+	local origAtmDecay    = atmosphere and atmosphere.Decay    or Color3.new(1,1,1)
+	local origAtmGlare    = atmosphere and atmosphere.Glare    or 0
+	local origAtmHaze     = atmosphere and atmosphere.Haze     or 0
+
+	OldTheme = vape.Categories.World:CreateModule({
+		Name = 'OldTheme',
+		Tooltip = 'Makes the game look like old Roblox 👴',
+		Function = function(callback)
+			if callback then
+				lightingService.EnvironmentSpecularScale = 1
+				lightingService.EnvironmentDiffuseScale  = 1
+				lightingService.GeographicLatitude       = 0
+				lightingService.OutdoorAmbient           = Color3.new(0.270588, 0.270588, 0.270588)
+				lightingService.GlobalShadows            = false
+				lightingService.Brightness               = 3
+				lightingService.TimeOfDay                = '13:00:00'
+				lightingService.ClockTime                = 13
+				lightingService.Ambient                  = Color3.new(0.270588, 0.270588, 0.270588)
+
+				-- Only touch atmosphere if the Atmosphere module isn't active
+				local atm = lightingService:FindFirstChildOfClass('Atmosphere')
+				if atm and not (vape.Modules.Atmosphere and vape.Modules.Atmosphere.Enabled) then
+					atm.Density = 0.1
+					atm.Offset  = 0.25
+					atm.Color   = Color3.new(0.776471, 0.776471, 0.776471)
+					atm.Decay   = Color3.new(0.407843, 0.439216, 0.486275)
+					atm.Glare   = 0
+					atm.Haze    = 0
+				end
+			else
+				lightingService.EnvironmentSpecularScale = origSpecular
+				lightingService.EnvironmentDiffuseScale  = origDiffuse
+				lightingService.GeographicLatitude       = origLatitude
+				lightingService.OutdoorAmbient           = origOutdoor
+				lightingService.GlobalShadows            = origShadows
+				lightingService.Brightness               = origBrightness
+				lightingService.TimeOfDay                = origTimeOfDay
+				lightingService.ClockTime                = origClockTime
+				lightingService.Ambient                  = origAmbient
+
+				local atm = lightingService:FindFirstChildOfClass('Atmosphere')
+				if atm and not (vape.Modules.Atmosphere and vape.Modules.Atmosphere.Enabled) then
+					atm.Density = origAtmDensity
+					atm.Offset  = origAtmOffset
+					atm.Color   = origAtmColor
+					atm.Decay   = origAtmDecay
+					atm.Glare   = origAtmGlare
+					atm.Haze    = origAtmHaze
+				end
+			end
+		end
+	})
+end)
+
+-- ── NoFallDamage ──────────────────────────────────────────────────────────────
+run(function()
+	local NoFallDamage
+	local GroundHitRemote
+
+	-- Grab the GroundHit remote the same way the rest of the file does
+	local function getGroundHitRemote()
+		if GroundHitRemote then return GroundHitRemote end
+		local ok, r = pcall(function()
+			return bedwars.Client:Get('GroundHit')
+		end)
+		if ok and r then
+			GroundHitRemote = r
+		end
+		return GroundHitRemote
+	end
+
+	NoFallDamage = vape.Categories.Blatant:CreateModule({
+		Name = 'NoFallDamage',
+		Tooltip = 'Prevents you from taking fall damage',
+		Function = function(callback)
+			if callback then
+				NoFallDamage:Clean(runService.Heartbeat:Connect(function()
+					if not entitylib.isAlive then return end
+					if vape.Modules.Fly and vape.Modules.Fly.Enabled then return end
+
+					local root = entitylib.character and entitylib.character:FindFirstChild('HumanoidRootPart')
+					if not root then return end
+
+					local vel = root.AssemblyLinearVelocity
+					-- Only act when falling fast enough to take damage
+					if vel.Y >= -50 then return end
+
+					-- Find the nearest block below to send as the ground reference
+					local rayParams = RaycastParams.new()
+					rayParams.FilterDescendantsInstances = {lplr.Character}
+					rayParams.FilterType = Enum.RaycastFilterType.Exclude
+					local ray = workspace:Raycast(root.Position, Vector3.new(0, -100, 0), rayParams)
+					local nearestBlock = ray and ray.Instance
+
+					if nearestBlock then
+						local remote = getGroundHitRemote()
+						if remote then
+							pcall(function()
+								remote:SendToServer(nearestBlock, vel, workspace:GetServerTimeNow())
+							end)
+						end
+					end
+
+					-- Clamp downward velocity so the server never registers a lethal fall
+					root.AssemblyLinearVelocity = Vector3.new(vel.X, math.clamp(vel.Y, -50, math.huge), vel.Z)
+				end))
+			end
+		end
+	})
+end)
