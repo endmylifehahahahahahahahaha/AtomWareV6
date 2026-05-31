@@ -3,7 +3,54 @@ repeat task.wait() until game:IsLoaded()
 if shared.vape then shared.vape:Uninject() end
 
 -- Load shared utilities early for optimized operations
-local SharedUtils = loadstring(readfile('newvape/libraries/SharedUtils.lua'))()
+local SharedUtils
+local sharedUtilsPath = 'newvape/libraries/SharedUtils.lua'
+if isfile(sharedUtilsPath) then
+	SharedUtils = loadstring(readfile(sharedUtilsPath))()
+else
+	-- Fallback: create minimal SharedUtils if file doesn't exist yet
+	SharedUtils = {
+		isfile = function(file)
+			local suc, res = pcall(readfile, file)
+			return suc and res ~= nil and res ~= ''
+		end,
+		downloadFile = function(path, func)
+			if not isfile(path) then
+				local suc, res = pcall(function()
+					return game:HttpGet('https://raw.githubusercontent.com/endmylifehahahahahahahahaha/AtomWareV6/'..readfile('newvape/profiles/commit.txt')..'/'..select(1, path:gsub('newvape/', '')), true)
+				end)
+				if not suc or res == '404: Not Found' then error(res) end
+				if path:find('.lua') then
+					res = '--This watermark is used to delete the file if its cached, remove it to make the file persist after vape updates.\n'..res
+				end
+				writefile(path, res)
+			end
+			return (func or readfile)(path)
+		end,
+		migrateProfiles = function(oldId, newId)
+			if oldId == newId then return end
+			if isfile('newvape/profiles/migrated_placeid.txt') then return end
+			
+			local suffix = tostring(oldId) .. '.txt'
+			local function migrateFolder(folderPath)
+				if not isfolder(folderPath) then return end
+				for _, path in ipairs(listfiles(folderPath)) do
+					local normalized = path:gsub('\\', '/')
+					if normalized:sub(-#suffix) == suffix then
+						local basePath = normalized:sub(1, -#suffix - 1)
+						local newPath = basePath .. tostring(newId) .. '.txt'
+						if not SharedUtils.isfile(newPath) then
+							pcall(function() writefile(newPath, readfile(path)) end)
+						end
+					end
+				end
+			end
+			migrateFolder('newvape/profiles')
+			migrateFolder('newvape/profiles/premade')
+			pcall(writefile, 'newvape/profiles/migrated_placeid.txt', 'done')
+		end
+	}
+end
 
 if identifyexecutor then
 	if table.find({'Wave', 'Seliware', 'Volt'}, ({identifyexecutor()})[1]) then
@@ -44,6 +91,12 @@ local httpService = cloneref(game:GetService('HttpService'))
 
 -- Migrate profiles from old game ID to new game ID (optimized version)
 pcall(function()
+	-- Ensure folders exist
+	for _, folder in {'newvape', 'newvape/games', 'newvape/profiles', 'newvape/profiles/premade', 'newvape/assets', 'newvape/libraries', 'newvape/guis'} do
+		if not isfolder(folder) then
+			pcall(makefolder, folder)
+		end
+	end
 	SharedUtils.migrateProfiles(tonumber(game.GameId) or 0, tonumber(game.PlaceId) or 0)
 end)
 
