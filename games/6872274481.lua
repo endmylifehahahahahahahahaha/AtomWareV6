@@ -29684,7 +29684,7 @@ run(function()
 							task.wait(0.1)
 							continue
 						end
-						local hum = entitylib.character and entitylib.character:FindFirstChildOfClass('Humanoid')
+						local hum = entitylib.character and entitylib.character.Humanoid
 						if mushtype == 'Heal' and hum and hum.Health >= hum.MaxHealth then
 							task.wait(0.1)
 							continue
@@ -30972,14 +30972,18 @@ run(function()
 						Sort = sortmethods[Sorts.Value]
 					})
 					local char = entitylib.character
-					local root = char.RootPart
+					local root = char and char.RootPart
+					if not root then
+						task.wait(0.336)
+						continue
+					end
 					if plrs then
 						local ent = plrs[1]
 						if ent and ent.RootPart then
 							local Pos = ent.RootPart.Position
-							local Vec = entitylib.character.RootPart.CFrame.LookVector
+							local Vec = root.CFrame.LookVector
 							local Delta = CFrame.lookAlong(Pos, Vec)
-							entitylib.character.RootPart.CFrame = Delta
+							root.CFrame = Delta
 						end
 					end
 					task.wait(0.336)
@@ -35092,10 +35096,13 @@ run(function()
 					-- Don't interfere with Fly module
 					if vape.Modules.Fly and vape.Modules.Fly.Enabled then return end
 
-					-- Get the character's root part
+					-- Get the character's root part from entitylib's cached entity table.
 					local character = entitylib.character
 					if not character then return end
-					local root = character:FindFirstChild('HumanoidRootPart')
+					local root = character.RootPart or character.HumanoidRootPart
+					if not root and lplr.Character then
+						root = lplr.Character:FindFirstChild('HumanoidRootPart')
+					end
 					if not root then return end
 
 					local vel = root.AssemblyLinearVelocity
