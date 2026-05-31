@@ -34988,7 +34988,6 @@ end)
 -- ── OldTheme ──────────────────────────────────────────────────────────────────
 run(function()
 	local OldTheme
-	local atmosphere = lightingService:FindFirstChildOfClass('Atmosphere')
 
 	-- Snapshot original values at load time
 	local origSpecular    = lightingService.EnvironmentSpecularScale
@@ -35000,12 +34999,17 @@ run(function()
 	local origTimeOfDay   = lightingService.TimeOfDay
 	local origClockTime   = lightingService.ClockTime
 	local origAmbient     = lightingService.Ambient
-	local origAtmDensity  = atmosphere and atmosphere.Density  or 0
-	local origAtmOffset   = atmosphere and atmosphere.Offset   or 0
-	local origAtmColor    = atmosphere and atmosphere.Color    or Color3.new(1,1,1)
-	local origAtmDecay    = atmosphere and atmosphere.Decay    or Color3.new(1,1,1)
-	local origAtmGlare    = atmosphere and atmosphere.Glare    or 0
-	local origAtmHaze     = atmosphere and atmosphere.Haze     or 0
+	
+	-- Safely get atmosphere values
+	local function getAtmosphereValues()
+		local atm = pcall(function() return lightingService.Atmosphere end) and lightingService.Atmosphere or nil
+		if atm then
+			return atm.Density, atm.Offset, atm.Color, atm.Decay, atm.Glare, atm.Haze
+		end
+		return 0, 0, Color3.new(1,1,1), Color3.new(1,1,1), 0, 0
+	end
+	
+	local origAtmDensity, origAtmOffset, origAtmColor, origAtmDecay, origAtmGlare, origAtmHaze = getAtmosphereValues()
 
 	OldTheme = vape.Categories.World:CreateModule({
 		Name = 'OldTheme',
@@ -35023,15 +35027,16 @@ run(function()
 				lightingService.Ambient                  = Color3.new(0.270588, 0.270588, 0.270588)
 
 				-- Only touch atmosphere if the Atmosphere module isn't active
-				local atm = lightingService:FindFirstChildOfClass('Atmosphere')
-				if atm and not (vape.Modules.Atmosphere and vape.Modules.Atmosphere.Enabled) then
-					atm.Density = 0.1
-					atm.Offset  = 0.25
-					atm.Color   = Color3.new(0.776471, 0.776471, 0.776471)
-					atm.Decay   = Color3.new(0.407843, 0.439216, 0.486275)
-					atm.Glare   = 0
-					atm.Haze    = 0
-				end
+				pcall(function()
+					if lightingService.Atmosphere and not (vape.Modules.Atmosphere and vape.Modules.Atmosphere.Enabled) then
+						lightingService.Atmosphere.Density = 0.1
+						lightingService.Atmosphere.Offset  = 0.25
+						lightingService.Atmosphere.Color   = Color3.new(0.776471, 0.776471, 0.776471)
+						lightingService.Atmosphere.Decay   = Color3.new(0.407843, 0.439216, 0.486275)
+						lightingService.Atmosphere.Glare   = 0
+						lightingService.Atmosphere.Haze    = 0
+					end
+				end)
 			else
 				lightingService.EnvironmentSpecularScale = origSpecular
 				lightingService.EnvironmentDiffuseScale  = origDiffuse
@@ -35043,15 +35048,16 @@ run(function()
 				lightingService.ClockTime                = origClockTime
 				lightingService.Ambient                  = origAmbient
 
-				local atm = lightingService:FindFirstChildOfClass('Atmosphere')
-				if atm and not (vape.Modules.Atmosphere and vape.Modules.Atmosphere.Enabled) then
-					atm.Density = origAtmDensity
-					atm.Offset  = origAtmOffset
-					atm.Color   = origAtmColor
-					atm.Decay   = origAtmDecay
-					atm.Glare   = origAtmGlare
-					atm.Haze    = origAtmHaze
-				end
+				pcall(function()
+					if lightingService.Atmosphere and not (vape.Modules.Atmosphere and vape.Modules.Atmosphere.Enabled) then
+						lightingService.Atmosphere.Density = origAtmDensity
+						lightingService.Atmosphere.Offset  = origAtmOffset
+						lightingService.Atmosphere.Color   = origAtmColor
+						lightingService.Atmosphere.Decay   = origAtmDecay
+						lightingService.Atmosphere.Glare   = origAtmGlare
+						lightingService.Atmosphere.Haze    = origAtmHaze
+					end
+				end)
 			end
 		end
 	})
@@ -35080,14 +35086,20 @@ run(function()
 		Function = function(callback)
 			if callback then
 				NoFallDamage:Clean(runService.Heartbeat:Connect(function()
+					-- Check if player is alive
 					if not entitylib.isAlive then return end
+					
+					-- Don't interfere with Fly module
 					if vape.Modules.Fly and vape.Modules.Fly.Enabled then return end
 
-					local root = entitylib.character and entitylib.character:FindFirstChild('HumanoidRootPart')
+					-- Get the character's root part
+					local character = entitylib.character
+					if not character then return end
+					local root = character:FindFirstChild('HumanoidRootPart')
 					if not root then return end
 
 					local vel = root.AssemblyLinearVelocity
-					-- Only act when falling fast enough to take damage
+					-- Only act when falling fast enough to take damage (below -50 Y velocity)
 					if vel.Y >= -50 then return end
 
 					-- Find the nearest block below to send as the ground reference
