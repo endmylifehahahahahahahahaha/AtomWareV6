@@ -1,4 +1,4 @@
---This watermark is used to delete the file if its cached, remove it to make the file persist after vape updates.
+﻿--This watermark is used to delete the file if its cached, remove it to make the file persist after vape updates.
 local run = function(func)
     local ok, err = pcall(func)
     if not ok then
@@ -679,7 +679,7 @@ run(function()
 			end),
 			plr:GetAttributeChangedSignal('Team'):Connect(function()
 				if plr == lplr then
-					for _, v in entitylib.List do
+					for _, v in ipairs(entitylib.List) do
 						local newTargetable = entitylib.targetCheck(v)
 						if v.Targetable ~= newTargetable then
 							v.Targetable = newTargetable
@@ -688,7 +688,7 @@ run(function()
 					end
 				else
 					entitylib.refreshEntity(plr.Character, plr)
-					for _, v in entitylib.List do
+					for _, v in ipairs(entitylib.List) do
 						if v.Player ~= plr and v.Targetable ~= entitylib.targetCheck(v) then
 							local newTargetable = entitylib.targetCheck(v)
 							v.Targetable = newTargetable
@@ -9979,14 +9979,14 @@ run(function()
                 end
 
                 if Added[methodused] then
-                    for _, v in entitylib.List do
+                    for _, v in ipairs(entitylib.List) do
                         if Reference[v] then Removed[methodused](v) end
                         pcall(Added[methodused], v)
                     end
                     task.spawn(function()
                         task.wait(1)
                         if not NameTags.Enabled then return end
-                        for _, v in entitylib.List do
+                        for _, v in ipairs(entitylib.List) do
                             if Reference[v] then Removed[methodused](v) end
                             pcall(Added[methodused], v)
                         end
@@ -10003,7 +10003,7 @@ run(function()
                         NameTags:Clean(p.CharacterAdded:Connect(function()
                             task.delay(0.3, function()
                                 if not NameTags.Enabled then return end
-                                for _, v in entitylib.List do
+                                for _, v in ipairs(entitylib.List) do
                                     if v.Player == p and not Reference[v] then
                                         pcall(Added[methodused], v)
                                     end
@@ -10015,7 +10015,7 @@ run(function()
 
                 if Updated[methodused] then
                     NameTags:Clean(entitylib.Events.EntityUpdated:Connect(Updated[methodused]))
-                    for _, v in entitylib.List do
+                    for _, v in ipairs(entitylib.List) do
                         Updated[methodused](v)
                     end
                 end
@@ -11409,7 +11409,7 @@ run(function()
 					local mag, hp, ent = 30, math.huge
 					if entitylib.isAlive then
 						local localPosition = entitylib.character.RootPart.Position
-						for _, v in entitylib.List do
+						for _, v in ipairs(entitylib.List) do
 							if v.Player and v.Player:GetAttribute('Team') == lplr:GetAttribute('Team') then
 								local newmag = (localPosition - v.RootPart.Position).Magnitude
 								if newmag <= mag and v.Health < hp and v.Health < v.MaxHealth then
@@ -11437,7 +11437,7 @@ run(function()
 					end
 
 					local localPosition = entitylib.character.RootPart.Position
-					for _, v in entitylib.List do
+					for _, v in ipairs(entitylib.List) do
 						if v.Targetable and v.Character and v.Player then
 							local distance = (v.RootPart.Position - localPosition).Magnitude
 							if distance <= (Legit.Enabled and 12 or 30) then
@@ -16422,7 +16422,7 @@ run(function()
 						done[highlight] = true
 					end
 				end
-				for _, v in entitylib.List do hookHighlight(v) end
+				for _, v in ipairs(entitylib.List) do hookHighlight(v) end
 				HitColor:Clean(entitylib.Events.EntityAdded:Connect(hookHighlight))
 			else
 				for highlight in pairs(done) do
@@ -22465,7 +22465,7 @@ run(function()
         local lowestHp = math.huge
         local targetEntity = nil
         
-        for _, v in entitylib.List do
+        for _, v in ipairs(entitylib.List) do
             if v.Player and v.Player ~= lplr and v.Player:GetAttribute('Team') == lplr:GetAttribute('Team') then
                 local distance = (localPosition - v.RootPart.Position).Magnitude
                 

@@ -1,4 +1,4 @@
-local loadstring = function(...)
+﻿local loadstring = function(...)
 	local res, err = loadstring(...)
 	if err and vape then
 		vape:CreateNotification('Vape', 'Failed to load : '..err, 30, 'alert')
@@ -1065,7 +1065,7 @@ run(function()
 					if tool then
 						if Mode.Value == 'TouchInterest' then
 							local entites = {}
-							for _, v in entitylib.List do
+							for _, v in ipairs(entitylib.List) do
 								if v.Targetable then
 									if not Targets.Players.Enabled and v.Player then continue end
 									if not Targets.NPCs.Enabled and v.NPC then continue end
@@ -2150,7 +2150,7 @@ run(function()
 		Function = function(callback)
 			if callback then
 				repeat
-					for _, v in entitylib.List do
+					for _, v in ipairs(entitylib.List) do
 						if v.Targetable then
 							if not Targets.Players.Enabled and v.Player then continue end
 							if not Targets.NPCs.Enabled and v.NPC then continue end
@@ -2838,7 +2838,7 @@ run(function()
 	local Functions = {
 		Part = function()
 			local chars = {gameCamera, lplr.Character}
-			for _, v in entitylib.List do
+			for _, v in ipairs(entitylib.List) do
 				table.insert(chars, v.Character)
 			end
 			overlapCheck.FilterDescendantsInstances = chars
@@ -2868,7 +2868,7 @@ run(function()
 		end,
 		CFrame = function()
 			local chars = {gameCamera, lplr.Character}
-			for _, v in entitylib.List do
+			for _, v in ipairs(entitylib.List) do
 				table.insert(chars, v.Character)
 			end
 			rayCheck.FilterDescendantsInstances = chars
@@ -3143,7 +3143,7 @@ run(function()
 					if entitylib.isAlive then
 						local root = entitylib.character.RootPart
 						local chars = {gameCamera, lplr.Character, Truss}
-						for _, v in entitylib.List do
+						for _, v in ipairs(entitylib.List) do
 							table.insert(chars, v.Character)
 						end
 						SpiderShift = inputService:IsKeyDown(Enum.KeyCode.LeftShift)
@@ -3775,7 +3775,7 @@ run(function()
 		Function = function(callback)
 			if callback then
 				Arrows:Clean(entitylib.Events.EntityRemoved:Connect(Removed))
-				for _, v in entitylib.List do
+				for _, v in ipairs(entitylib.List) do
 					if Reference[v] then Removed(v) end
 					Added(v)
 				end
@@ -3933,7 +3933,7 @@ run(function()
 						end
 					end
 				end))
-				for _, v in entitylib.List do
+				for _, v in ipairs(entitylib.List) do
 					if Reference[v] then
 						Removed(v)
 					end
@@ -4451,7 +4451,7 @@ run(function()
 					ESP:Clean(entitylib.Events.EntityRemoved:Connect(ESPRemoved[methodused]))
 				end
 				if ESPAdded[methodused] then
-					for _, v in entitylib.List do
+					for _, v in ipairs(entitylib.List) do
 						if Reference[v] then
 							ESPRemoved[methodused](v)
 						end
@@ -4466,7 +4466,7 @@ run(function()
 				end
 				if ESPUpdated[methodused] then
 					ESP:Clean(entitylib.Events.EntityUpdated:Connect(ESPUpdated[methodused]))
-					for _, v in entitylib.List do
+					for _, v in ipairs(entitylib.List) do
 						ESPUpdated[methodused](v)
 					end
 				end
@@ -5159,7 +5159,7 @@ run(function()
 					NameTags:Clean(entitylib.Events.EntityRemoved:Connect(Removed[methodused]))
 				end
 				if Added[methodused] then
-					for _, v in entitylib.List do
+					for _, v in ipairs(entitylib.List) do
 						if Reference[v] then
 							Removed[methodused](v)
 						end
@@ -5174,7 +5174,7 @@ run(function()
 				end
 				if Updated[methodused] then
 					NameTags:Clean(entitylib.Events.EntityUpdated:Connect(Updated[methodused]))
-					for _, v in entitylib.List do
+					for _, v in ipairs(entitylib.List) do
 						Updated[methodused](v)
 					end
 				end
@@ -5487,7 +5487,7 @@ run(function()
 		Function = function(callback)
 			if callback then
 				Radar:Clean(entitylib.Events.EntityRemoved:Connect(Removed))
-				for _, v in entitylib.List do
+				for _, v in ipairs(entitylib.List) do
 					if Reference[v] then
 						Removed(v)
 					end
@@ -5972,7 +5972,7 @@ run(function()
 		Function = function(callback)
 			if callback then
 				Tracers:Clean(entitylib.Events.EntityRemoved:Connect(Removed))
-				for _, v in entitylib.List do
+				for _, v in ipairs(entitylib.List) do
 					if Reference[v] then
 						Removed(v)
 					end
