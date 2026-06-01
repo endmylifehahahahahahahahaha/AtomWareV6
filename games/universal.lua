@@ -1,4 +1,4 @@
-﻿local loadstring = function(...)
+local loadstring = function(...)
 	local res, err = loadstring(...)
 	if err and vape then
 		vape:CreateNotification('Vape', 'Failed to load : '..err, 30, 'alert')
@@ -219,9 +219,9 @@ local function motorMove(target, cf)
 	task.delay(0, part.Destroy, part)
 end
 
-local hash = loadstring(downloadFile('newvape/libraries/hash.lua'), 'hash')()
-local prediction = loadstring(downloadFile('newvape/libraries/prediction.lua'), 'prediction')()
-entitylib = loadstring(downloadFile('newvape/libraries/entity.lua'), 'entitylibrary')()
+local hash = (function() local fn = loadstring(downloadFile('newvape/libraries/hash.lua'), 'hash'); return fn and fn() or {} end)()
+local prediction = (function() local fn = loadstring(downloadFile('newvape/libraries/prediction.lua'), 'prediction'); return fn and fn() or {} end)()
+entitylib = (function() local fn = loadstring(downloadFile('newvape/libraries/entity.lua'), 'entitylibrary'); return fn and fn() or {} end)()
 local whitelist = {
 	alreadychecked = {},
 	customtags = {},
