@@ -84,32 +84,34 @@ local hooktypes = {
 local rakNet = typeof(raknet) == "table"
 
 local function rakhook(pckt)
-	if not pckt then return end
-	if pckt.PacketId == 0x1B or (pckt.AsArray and pckt.AsArray[1] == 0x1B) then
-		local success, err = pcall(function()
-			local buf = pckt.AsBuffer or buffer.create(100)
+	if not pckt or pckt.PacketId ~= 0x1B then return end
+	
+	local success, err = pcall(function()
+		local buf = pckt.AsBuffer
+		if buf then
 			buffer.writeu32(buf, 1, 0xFFFFFFFF)
 			pckt:SetData(buf)
-		end)
-		if not success then
-			warn("[Desync] Hook error:", err)
 		end
+	end)
+	
+	if not success then
+		warn("[Desync] Hook error:", err)
 	end
 end
 
 local function rakHookk(pckt)
-	if not pckt then return end
-	if pckt.PacketId == 0x1B then
-		local success, err = pcall(function()
-			local buf = pckt.AsBuffer
-			if buf then
-				buffer.writeu32(buf, 1, 0xFFFFFFFF)
-				pckt:SetData(buf)
-			end
-		end)
-		if not success then
-			warn("[Desync] Hook2 error:", err)
+	if not pckt or pckt.PacketId ~= 0x1B then return end
+	
+	local success, err = pcall(function()
+		local buf = pckt.AsBuffer
+		if buf then
+			buffer.writeu32(buf, 1, 0xFFFFFFFF)
+			pckt:SetData(buf)
 		end
+	end)
+	
+	if not success then
+		warn("[Desync] Hook2 error:", err)
 	end
 end
 
@@ -126,7 +128,7 @@ Desync = vape.Categories.Blatant:CreateModule({
 				vape:CreateNotification("Vape", "RakNet founded! Attempting to use server-sided desync...", 8)
 
 				local suc1 = pcall(function()
-					return raknet.add_send_hook(rakhook)
+					raknet.add_send_hook(rakhook)
 				end)
 
 				if suc1 then
@@ -137,7 +139,7 @@ Desync = vape.Categories.Blatant:CreateModule({
 
 				task.wait(0.5)
 				local suc2 = pcall(function()
-					return raknet.add_send_hook(rakHookk)
+					raknet.add_send_hook(rakHookk)
 				end)
 
 				if suc2 then
@@ -168,19 +170,24 @@ Desync = vape.Categories.Blatant:CreateModule({
 		else
 			if rakNet then
 				if hooktypes.rakhook1 then
-					pcall(function() raknet.remove_send_hook(rakhook) end)
-				elseif hooktypes.rakhook2 then
-					pcall(function() raknet.remove_send_hook(rakHookk) end)
+					pcall(function() 
+						raknet.remove_send_hook(rakhook)
+					end)
+					hooktypes.rakhook1 = false
+				end
+				if hooktypes.rakhook2 then
+					pcall(function() 
+						raknet.remove_send_hook(rakHookk)
+					end)
+					hooktypes.rakhook2 = false
 				end
 			end
 			if hooktypes.fflag then
 				pcall(function()
 					setfflag("NextGenReplicatorEnabledWrite4", "false")
 				end)
+				hooktypes.fflag = false
 			end
-			hooktypes.rakhook1 = false
-			hooktypes.rakhook2 = false
-			hooktypes.fflag = false
 		end
 	end
 })

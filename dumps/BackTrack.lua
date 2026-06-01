@@ -112,10 +112,18 @@ run(function()
     local hookFunction = nil
 
     local function hook(pckt)
-        if pckt.AsArray[1] == 0x1b then
+        if not pckt or pckt.PacketId ~= 0x1B then return end
+        
+        local success, err = pcall(function()
             local data = pckt.AsBuffer
-            buffer.writeu32(data, 1, 0xFFFFFFFF)
-            pckt:SetData(data)
+            if data then
+                buffer.writeu32(data, 1, 0xFFFFFFFF)
+                pckt:SetData(data)
+            end
+        end)
+        
+        if not success then
+            warn('[BackTrack] Hook error: ' .. tostring(err))
         end
     end
     
