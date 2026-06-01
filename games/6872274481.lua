@@ -1,4 +1,4 @@
-﻿--This watermark is used to delete the file if its cached, remove it to make the file persist after vape updates.
+--This watermark is used to delete the file if its cached, remove it to make the file persist after vape updates.
 local run = function(func)
     local ok, err = pcall(func)
     if not ok then
@@ -34847,25 +34847,32 @@ end)
 
 -- Modules now loaded directly from local dumps (no tier restrictions, no remote fetching)
 run(function()
-	loadstring(game:HttpGet('https://raw.githubusercontent.com/endmylifehahahahahahahahaha/AtomWareV6/'..readfile('newvape/profiles/commit.txt')..'/dumps/KrystalDisabler.lua', true), 'KrystalDisabler')()
+	local fn = loadstring(game:HttpGet('https://raw.githubusercontent.com/endmylifehahahahahahahahaha/AtomWareV6/'..readfile('newvape/profiles/commit.txt')..'/dumps/KrystalDisabler.lua', true), 'KrystalDisabler')
+	if fn then fn() end
 end)
 run(function()
-	loadstring(game:HttpGet('https://raw.githubusercontent.com/endmylifehahahahahahahahaha/AtomWareV6/'..readfile('newvape/profiles/commit.txt')..'/dumps/SilentAura.lua', true), 'SilentAura')()
+	local fn = loadstring(game:HttpGet('https://raw.githubusercontent.com/endmylifehahahahahahahahaha/AtomWareV6/'..readfile('newvape/profiles/commit.txt')..'/dumps/SilentAura.lua', true), 'SilentAura')
+	if fn then fn() end
 end)
 run(function()
-	loadstring(game:HttpGet('https://raw.githubusercontent.com/endmylifehahahahahahahahaha/AtomWareV6/'..readfile('newvape/profiles/commit.txt')..'/dumps/CleanKit.lua', true), 'CleanKit')()
+	local fn = loadstring(game:HttpGet('https://raw.githubusercontent.com/endmylifehahahahahahahahaha/AtomWareV6/'..readfile('newvape/profiles/commit.txt')..'/dumps/CleanKit.lua', true), 'CleanKit')
+	if fn then fn() end
 end)
 run(function()
-	loadstring(game:HttpGet('https://raw.githubusercontent.com/endmylifehahahahahahahahaha/AtomWareV6/'..readfile('newvape/profiles/commit.txt')..'/dumps/BackTrack.lua', true), 'BackTrack')()
+	local fn = loadstring(game:HttpGet('https://raw.githubusercontent.com/endmylifehahahahahahahahaha/AtomWareV6/'..readfile('newvape/profiles/commit.txt')..'/dumps/BackTrack.lua', true), 'BackTrack')
+	if fn then fn() end
 end)
 run(function()
-	loadstring(game:HttpGet('https://raw.githubusercontent.com/endmylifehahahahahahahahaha/AtomWareV6/'..readfile('newvape/profiles/commit.txt')..'/dumps/Desync.lua', true), 'Desync')()
+	local fn = loadstring(game:HttpGet('https://raw.githubusercontent.com/endmylifehahahahahahahahaha/AtomWareV6/'..readfile('newvape/profiles/commit.txt')..'/dumps/Desync.lua', true), 'Desync')
+	if fn then fn() end
 end)
 run(function()
-	loadstring(game:HttpGet('https://raw.githubusercontent.com/endmylifehahahahahahahahaha/AtomWareV6/'..readfile('newvape/profiles/commit.txt')..'/dumps/OwlAura.lua', true), 'OwlAura')()
+	local fn = loadstring(game:HttpGet('https://raw.githubusercontent.com/endmylifehahahahahahahahaha/AtomWareV6/'..readfile('newvape/profiles/commit.txt')..'/dumps/OwlAura.lua', true), 'OwlAura')
+	if fn then fn() end
 end)
 run(function()
-	loadstring(game:HttpGet('https://raw.githubusercontent.com/endmylifehahahahahahahahaha/AtomWareV6/'..readfile('newvape/profiles/commit.txt')..'/dumps/Autowin.lua', true), 'Autowin')()
+	local fn = loadstring(game:HttpGet('https://raw.githubusercontent.com/endmylifehahahahahahahahaha/AtomWareV6/'..readfile('newvape/profiles/commit.txt')..'/dumps/Autowin.lua', true), 'Autowin')
+	if fn then fn() end
 end)
 
 run(function()
