@@ -109,13 +109,12 @@ run(function()
     local OldGet
     local enabled
     local posHistory = {}
-    local rakhookLoop = nil
-    local rakhookActive = false
+    local hookFunction = nil
 
     local function hook(pckt)
         if pckt.AsArray[1] == 0x1b then
             local data = pckt.AsBuffer
-            buffer.writeu32(data,1,0xFFFFFFFF)
+            buffer.writeu32(data, 1, 0xFFFFFFFF)
             pckt:SetData(data)
         end
     end
@@ -261,38 +260,23 @@ run(function()
         end
     end
 
-    local function startRaknetLoop()
-        if rakhookLoop then return end
-        if not rakNet then return end
-        rakhookLoop = runService.Heartbeat:Connect(function()
-            if not enabled then return end
-            local tme = Delay.Value / 1000
-            raknet.add_send_hook(hook)
-            task.delay(tme, function()
-                if rakhookLoop then
-                    raknet.remove_send_hook(hook)
-                end
-            end)
-            rakhookLoop:Disconnect()
-            rakhookLoop = nil
-            task.wait(tme)
-            if enabled then startRaknetLoop() end
-        end)
+    local function startRaknetHook()
+        if hookFunction then return end
+        hookFunction = hook
+        raknet.add_send_hook(hookFunction)
     end
 
-    local function stopRaknetLoop()
-        if rakhookLoop then
-            rakhookLoop:Disconnect()
-            rakhookLoop = nil
-        end
-        if rakNet then
-            pcall(function() raknet.remove_send_hook(hook) end)
-        end
+    local function stopRaknetHook()
+        if not hookFunction then return end
+        pcall(function() 
+            raknet.remove_send_hook(hookFunction) 
+        end)
+        hookFunction = nil
     end
 
     local function fullCleanup()
         unHookClient()
-        stopRaknetLoop()
+        stopRaknetHook()
     end
 
     BackTrack = vape.Categories.World:CreateModule({
@@ -309,7 +293,7 @@ run(function()
                 enabled = true
                 startFetching()
                 hookClient()
-                startRaknetLoop()
+                startRaknetHook()
             else
                 enabled = false
                 fullCleanup()
