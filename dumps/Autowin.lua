@@ -86,6 +86,8 @@ local playersService = cloneref(game:GetService('Players'))
 
 local lplr = playersService.LocalPlayer
 local vape = shared.vape
+local bedwars = getgenv().bedwars or {}
+local store = getgenv().store or {}
 
 local tracker = {bed = nil, nuking = false, died = false, kaing=false, currentTarget =  nil}
 local beds = {}

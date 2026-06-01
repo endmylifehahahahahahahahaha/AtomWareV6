@@ -132,8 +132,7 @@ run(function()
         local bestDot = -2
         local nearestDist = math.huge
 
-        if not entitylib or not lplr.Character.HumanoidRootPart then return nil end
-        if not entitylib.isAlive then return nil end
+        if not entitylib or not entitylib.isAlive or not lplr.Character or not lplr.Character.HumanoidRootPart then return nil end
 
         for _, ent in entitylib.List do
             if ent.Player ~= lplr and ent.Character then
@@ -162,7 +161,7 @@ run(function()
     local function calculateDynamicDelay()
         local targetRoot = getTargetRoot()
         if not targetRoot then return 0.2 end
-        if not entitylib.isAlive then return 0.2 end
+        if not entitylib.isAlive or not lplr.Character or not lplr.Character.HumanoidRootPart then return 0.2 end
         if not entitylib.RootPart then return 0.2 end
 
         local selfpos = lplr.Character.HumanoidRootPart.Position
@@ -217,6 +216,7 @@ run(function()
 
     local function hookClient()
         if OldGet then return end
+        if not bedwars or not bedwars.Client then return end
         OldGet = bedwars.Client.Get
         bedwars.Client.Get = function(self, remoteName)
             local call = OldGet(self, remoteName)
@@ -225,6 +225,7 @@ run(function()
                     instance = call.instance,
                     SendToServer = function(_, attackTable, ...)
                         if Mode.Value == 'Repel' then
+                            if not lplr.Character or not lplr.Character.HumanoidRootPart then return call:SendToServer(attackTable, ...) end
                             local selfpos = lplr.Character.HumanoidRootPart.Position
                             local targetpos = getTargetRoot()
                             if targetpos then

@@ -94,8 +94,8 @@ local lplr = playersService.LocalPlayer
 local vape = shared.vape
 local entitylib = vape.Libraries.entity
 local targetinfo = vape.Libraries.targetinfo
-local bedwars = getgenv().bedwars
-local store = getgenv().store
+local bedwars = getgenv().bedwars or {}
+local store = getgenv().store or {}
 
 local CK = {}
 

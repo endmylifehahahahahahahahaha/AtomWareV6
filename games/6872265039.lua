@@ -1529,7 +1529,7 @@ run(function()
         Tooltip = 'Modifies/Adds your winstreak (client‑sided)',
         Function = function(callback)
             if callback then
-                if not entitylib.isAlive then return end
+                if not entitylib.isAlive or not lplr.Character or not lplr.Character.Head then return end
                 if lplr.Character.Head.Nametag then
                     local winStreakCounter = lplr.Character.Head.Nametag:FindFirstChild("WinStreakCounter")
                     if not winStreakCounter then
@@ -1575,6 +1575,7 @@ run(function()
                     end
                 end
             else
+                if not lplr.Character or not lplr.Character.Head then return end
                 if lplr.Character.Head.Nametag then
                     local winStreakCounter = lplr.Character.Head.Nametag:FindFirstChild("WinStreakCounter")
                     if winStreakCounter then
@@ -1599,6 +1600,7 @@ run(function()
         Decimal = 1,
         Function = function(val)
             if WinstreakSpoofer.Enabled then
+                if not lplr.Character or not lplr.Character.Head then return end
                 if lplr.Character.Head.Nametag then
                     local winStreakCounter = lplr.Character.Head.Nametag:FindFirstChild("WinStreakCounter")
 	                if not winStreakCounter then
