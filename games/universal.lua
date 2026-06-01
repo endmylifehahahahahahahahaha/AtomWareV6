@@ -7383,10 +7383,6 @@ run(function()
 end)
 
 run(function()
-	loadstring(game:HttpGet('https://raw.githubusercontent.com/endmylifehahahahahahahahaha/AtomWareV6/'..readfile('newvape/profiles/commit.txt')..'/dumps/BackTrack.lua', true), 'BackTrack')()
-end)
-
-run(function()
 	local ChinaHat
 	local Material
 	local Color
