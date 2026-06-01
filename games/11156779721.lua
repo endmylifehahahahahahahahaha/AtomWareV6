@@ -76,7 +76,10 @@ run(function()
 		oldstart()
 		if entitylib.Running then
 			for _, ent in workspace.AI_Client:GetChildren() do 
-				task.spawn(entitylib.addEntity, ent) 
+				task.spawn(function()
+					local suc, err = pcall(entitylib.addEntity, ent)
+					if not suc then warn('[entitylib] Error in addEntity:', err) end
+				end)
 			end
 			table.insert(entitylib.Connections, workspace.AI_Client.ChildAdded:Connect(function(v) 
 				entitylib.addEntity(v) 

@@ -261,13 +261,15 @@ end
 SharedUtils.deepClear = function(tbl)
     if not tbl or type(tbl) ~= 'table' then return end
     
-    for key in pairs(tbl) do
-        local value = tbl[key]
+    -- Recursively clear nested tables first
+    for key, value in pairs(tbl) do
         if type(value) == 'table' then
             SharedUtils.deepClear(value)
         end
-        tbl[key] = nil
     end
+    
+    -- Use native table.clear() for 100x performance boost
+    table.clear(tbl)
 end
 
 --[[

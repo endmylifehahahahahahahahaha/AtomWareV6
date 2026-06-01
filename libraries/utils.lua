@@ -319,14 +319,21 @@ functions.errorNotification = function(title: string, text: string, delay: numbe
 	return success and frame
 end
 
-functions.deepclone = function(data: table): table
+functions.deepclone = function(data: table, depth: number): table
+    depth = depth or 0
+    if depth > 10 then
+        warn('[utils.deepclone] Max recursion depth (10) exceeded, stopping clone')
+        return {}
+    end
+    
     local newtab = {};
     for i,v in next, data do
         if typeof(v) == 'table' then
-            newtab[i] = functions.deepclone(v);
-        end
-        if typeof(v) == 'function' then 
+            newtab[i] = functions.deepclone(v, depth + 1);
+        elseif typeof(v) == 'function' then 
             newtab[i] = clonefunc(v);
+        else
+            newtab[i] = v
         end
     end
     return newtab

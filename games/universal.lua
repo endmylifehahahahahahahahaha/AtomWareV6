@@ -1528,7 +1528,7 @@ run(function()
 	
 		local ray = workspace:Raycast(gameCamera.CFrame.Position, gameCamera.CFrame.LookVector * Distance.Value, rayCheck)
 		if ray and ray.Instance then
-			for _, v in entitylib.List do
+			for _, v in ipairs(entitylib.List) do
 				if v.Targetable and v.Character and (Targets.Players.Enabled and v.Player or Targets.NPCs.Enabled and v.NPC) then
 					if ray.Instance:IsDescendantOf(v.Character) then
 						return entitylib.isVulnerable(v) and v
