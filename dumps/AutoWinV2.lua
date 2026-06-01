@@ -2,7 +2,7 @@
 
 
 --// Variables:
-local 
+--7local 
 
 
 
@@ -52,4 +52,4 @@ local
 -->> CodeBlock 2
 --[[task.spawn(function())]]
 
->> CodeBlock 2
+-->> CodeBlock 2
