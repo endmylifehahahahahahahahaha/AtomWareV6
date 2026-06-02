@@ -1,15 +1,131 @@
 --This watermark is used to delete the file if its cached, remove it to make the file persist after vape updates.
+
+-- ═══════════════════════════════════════════════════════════════
+-- PERFORMANCE OPTIMIZATION SYSTEM
+-- ═══════════════════════════════════════════════════════════════
+
+-- Global performance settings
+local PERF_CONFIG = {
+	-- Frame throttling
+	MAX_HEARTBEAT_FPS = 60,        -- Limit Heartbeat connections to 60 FPS
+	MAX_RENDERSTEPPED_FPS = 120,   -- Limit RenderStepped to 120 FPS
+	
+	-- Cache settings
+	ENTITY_CACHE_DURATION = 0.033, -- 30 FPS for entity lookups
+	TARGET_CACHE_DURATION = 0.033, -- 30 FPS for target scans
+	
+	-- Memory management
+	GC_INTERVAL = 30,              -- Run GC hint every 30 seconds
+	TABLE_POOL_SIZE = 50,          -- Reuse tables instead of creating new
+	
+	-- Update throttling
+	UI_UPDATE_INTERVAL = 0.1,      -- Update UI every 100ms
+	ESP_UPDATE_INTERVAL = 0.05,    -- Update ESP every 50ms
+	NAMETAG_UPDATE_INTERVAL = 0.5, -- Update nametags every 500ms
+}
+
+-- Frame throttling system
+local frameThrottlers = {}
+local function createThrottler(name, maxFPS)
+	if frameThrottlers[name] then return frameThrottlers[name] end
+	
+	local throttler = {
+		lastTick = 0,
+		interval = 1 / maxFPS,
+		shouldRun = function(self)
+			local now = tick()
+			if now - self.lastTick >= self.interval then
+				self.lastTick = now
+				return true
+			end
+			return false
+		end
+	}
+	frameThrottlers[name] = throttler
+	return throttler
+end
+
+-- Table pooling to reduce GC pressure
+local tablePool = {}
+local function getTable()
+	if #tablePool > 0 then
+		return table.remove(tablePool)
+	end
+	return {}
+end
+
+local function recycleTable(t)
+	if #tablePool < PERF_CONFIG.TABLE_POOL_SIZE then
+		table.clear(t)
+		table.insert(tablePool, t)
+	end
+end
+
+-- Cache system for expensive operations
+local cacheSystem = {}
+local function getCache(key, duration, generator)
+	local cache = cacheSystem[key]
+	local now = tick()
+	
+	if cache and (now - cache.time) < duration then
+		return cache.value
+	end
+	
+	local value = generator()
+	cacheSystem[key] = {value = value, time = now}
+	return value
+end
+
+local function clearCache(key)
+	if key then
+		cacheSystem[key] = nil
+	else
+		table.clear(cacheSystem)
+	end
+end
+
+-- Periodic garbage collection
+local lastGC = tick()
+task.spawn(function()
+	while true do
+		task.wait(PERF_CONFIG.GC_INTERVAL)
+		local now = tick()
+		if now - lastGC >= PERF_CONFIG.GC_INTERVAL then
+			lastGC = now
+			-- Clear old caches
+			for key, cache in pairs(cacheSystem) do
+				if (now - cache.time) > 5 then
+					cacheSystem[key] = nil
+				end
+			end
+			-- Hint GC
+			pcall(function()
+				if collectgarbage("count") > 50000 then -- 50MB
+					collectgarbage("collect")
+				end
+			end)
+		end
+	end
+end)
+
+-- Export utilities
+getgenv().VapePerf = {
+	throttle = createThrottler,
+	getTable = getTable,
+	recycleTable = recycleTable,
+	cache = getCache,
+	clearCache = clearCache,
+	config = PERF_CONFIG
+}
+
+-- ═══════════════════════════════════════════════════════════════
+
 local run = function(func)
     local ok, err = pcall(func)
     if not ok then
         warn('[AEROV4] module failed to load: ' .. tostring(err))
     end
 end
-
--- Performance optimization globals
-local _performanceMode = true  -- Enable optimizations
-local _gcThreshold = 0
-local _lastGCTime = 0
 local vapeEvents = setmetatable({}, {
 	__index = function(self, index)
 		self[index] = Instance.new('BindableEvent')
@@ -4201,7 +4317,10 @@ run(function()
                 end))
 
                 local renderFrameCounter = 0
+                local _flyThrottler = getgenv().VapePerf.throttle('fly_render', 60) -- 60 FPS max
                 Fly:Clean(runService.RenderStepped:Connect(function(delta)
+                    if not _flyThrottler:shouldRun() then return end
+                    
                     if FlyAnywayProgressBar.Enabled and Fly.Enabled then
                         renderFrameCounter = renderFrameCounter + 1
                         if renderFrameCounter % 2 == 0 then
@@ -4589,7 +4708,10 @@ run(function()
                         refreshAllHitboxes()
                     end
                     local hitboxThrottleCounter = 0
+                    local _hitboxThrottler = getgenv().VapePerf.throttle('hitboxes_heartbeat', 60) -- 60 FPS max
                     HitBoxes:Clean(runService.Heartbeat:Connect(function()
+                        if not _hitboxThrottler:shouldRun() then return end
+                        
                         if not Targets or not Targets.Walls or not Targets.Walls.Enabled then return end
                         hitboxThrottleCounter = hitboxThrottleCounter + 1
                         if hitboxThrottleCounter % 20 ~= 0 then return end
@@ -6962,7 +7084,10 @@ run(function()
 			paFOVCircleDrawing.Color = Color3.fromRGB(255, 255, 255)
 			paFOVCircleDrawing.Filled = false
 			paFOVCircleDrawing.NumSides = 64
+			local _paFOVThrottler = getgenv().VapePerf.throttle('pa_fov_circle', 60) -- 60 FPS max
 			paFOVCircleConnection = runService.RenderStepped:Connect(function()
+				if not _paFOVThrottler:shouldRun() then return end
+				
 				if paFOVCircleDrawing and FOV and FOV.Value then
 					local shouldShow = false
 					if PAFOVCircle and PAFOVCircle.Enabled and ProjectileAimbot and ProjectileAimbot.Enabled then
@@ -9933,6 +10058,10 @@ run(function()
         end,
 
         Drawing = function()
+            -- Use throttler to limit to 60 FPS instead of unlimited
+            local throttler = getgenv().VapePerf.throttle('nametags_drawing', 60)
+            if not throttler:shouldRun() then return end
+            
             frameCounter = frameCounter + 1
             local skipFrame = frameCounter % 2 ~= 0
 
@@ -16870,7 +16999,10 @@ run(function()
                 end
                 
 				local invisFrameCounter = 0
+				local _invisThrottler = getgenv().VapePerf.throttle('invis_render', 60) -- 60 FPS max
 				renderConnection = runService.Heartbeat:Connect(function()
+					if not _invisThrottler:shouldRun() then return end
+					
 					invisFrameCounter = invisFrameCounter + 1
 					if invisFrameCounter % 10 ~= 0 then return end
 					updateCursor()
@@ -19622,8 +19754,11 @@ run(function()
         end))
 
         local _mdLastUpdate = 0
+        local _mdThrottler = getgenv().VapePerf.throttle('metaldetector_esp', 30) -- 30 FPS max
         MetalDetector:Clean(runService.RenderStepped:Connect(function()
             if not ESPToggle.Enabled then return end
+            if not _mdThrottler:shouldRun() then return end
+            
             local _now = tick()
             if _now - _mdLastUpdate < 0.1 then return end
             _mdLastUpdate = _now
@@ -20082,7 +20217,9 @@ run(function()
 		Function = function(callback)
 			if callback then
 				local frameCounter = 0
+				local _ncThrottler = getgenv().VapePerf.throttle('nocollision_main', 60) -- 60 FPS max
 				local heartbeatConn = runService.Heartbeat:Connect(function()
+					if not _ncThrottler:shouldRun() then return end
 					if not NoCollision.Enabled then return end
 					
 					frameCounter = frameCounter + 1
@@ -20135,7 +20272,9 @@ run(function()
 				else
 					local lastTool = store.hand and store.hand.tool
 					local toolFrameCounter = 0
+					local _ncToolThrottler = getgenv().VapePerf.throttle('nocollision_tool', 60) -- 60 FPS max
 					local monitorConn = runService.Heartbeat:Connect(function()
+						if not _ncToolThrottler:shouldRun() then return end
 						if not NoCollision.Enabled then return end
 						
 						toolFrameCounter = toolFrameCounter + 1
@@ -22238,8 +22377,11 @@ run(function()
         end))
         
         local _scLastUpdate = 0
+        local _scThrottler = getgenv().VapePerf.throttle('starcollector_esp', 30) -- 30 FPS max
         StarCollector:Clean(runService.RenderStepped:Connect(function()
             if not ESPToggle.Enabled then return end
+            if not _scThrottler:shouldRun() then return end
+            
             local _now = tick()
             if _now - _scLastUpdate < 0.1 then return end
             _scLastUpdate = _now
@@ -24403,8 +24545,11 @@ run(function()
                 end
                 
                 local _bkLastUpdate = 0
+                local _bkThrottler = getgenv().VapePerf.throttle('beekeeper_esp', 30) -- 30 FPS max
                 Beekeeper:Clean(runService.RenderStepped:Connect(function()
                     if not ESPToggle.Enabled then return end
+                    if not _bkThrottler:shouldRun() then return end
+                    
                     local _now = tick()
                     if _now - _bkLastUpdate < 0.1 then return end
                     _bkLastUpdate = _now
