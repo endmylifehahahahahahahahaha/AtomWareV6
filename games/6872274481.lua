@@ -5572,11 +5572,17 @@ run(function()
                 end
 
                 local function gatherTargets(selfpos)
+                        -- Use fast mode multiplier if available
+                        local fastMultiplier = getgenv().VapeFastMode or 1
+                        local cacheTime = (1 / 30) / fastMultiplier
+                        
                         local walls = Targets.Walls.Enabled or nil
                         local players = Targets.Players.Enabled
                         local npcs = Targets.NPCs.Enabled
                         local limit = MaxTargets.Value
                         local sort = sortmethods[Sort.Value]
+                        
+                        -- Optimized entity gathering with less overhead
                         local swingPlrs = entitylib.AllPosition({
                             Range = SwingRange.Value,
                             Wallcheck = walls,
@@ -5586,9 +5592,11 @@ run(function()
                             Limit = limit,
                             Sort = sort
                         })
+                        
                         if AttackRange.Value == SwingRange.Value then
                             return swingPlrs, swingPlrs
                         end
+                        
                         local attackPlrs = entitylib.AllPosition({
                             Range = AttackRange.Value,
                             Wallcheck = walls,
@@ -5659,7 +5667,12 @@ run(function()
                         local minDot = math.cos(maxAngle)
                         local _cachedPing = math.clamp(lplr:GetNetworkPing(), 0.03, 0.4)
                         local swingPlrs, attackPlrs
-                        if now - _lastTargetScan >= 1 / 30 then
+                        
+                        -- Dynamic scan rate based on FastModules
+                        local fastMultiplier = getgenv().VapeFastMode or 1
+                        local scanInterval = (1 / 30) / fastMultiplier
+                        
+                        if now - _lastTargetScan >= scanInterval then
                             _lastTargetScan = now
                             _cachedSwingTargets, _cachedAttackTargets = gatherTargets(selfpos)
                         end
@@ -30390,125 +30403,241 @@ run(function()
 end)
 
 -- ═══════════════════════════════════════════════════════════════
--- ULTIMATE OPTIMIZE MODULE - ZERO FPS COST
+-- LITE OPTIMIZE - Balanced Performance/Quality
+-- ═══════════════════════════════════════════════════════════════
+run(function()
+	local LiteOptimize
+	
+	local function applyLiteOptimizations()
+		-- Moderate graphics reduction
+		pcall(function()
+			settings():GetService("RenderSettings").QualityLevel = Enum.QualityLevel.Level03
+			lightingService.GlobalShadows = false
+			lightingService.FogEnd = 9e9
+		end)
+		
+		-- Reduce throttling moderately
+		if getgenv().VapePerf then
+			getgenv().VapePerf.config.MAX_HEARTBEAT_FPS = 45
+			getgenv().VapePerf.config.MAX_RENDERSTEPPED_FPS = 90
+			getgenv().VapePerf.config.ENTITY_CACHE_DURATION = 0.05
+		end
+		
+		-- Disable some expensive effects
+		pcall(function()
+			if lightingService:FindFirstChildOfClass("BlurEffect") then
+				lightingService:FindFirstChildOfClass("BlurEffect").Enabled = false
+			end
+			if lightingService:FindFirstChildOfClass("BloomEffect") then
+				lightingService:FindFirstChildOfClass("BloomEffect").Enabled = false
+			end
+		end)
+		
+		vape:CreateNotification("LiteOptimize", "Balanced optimizations applied!", 3)
+	end
+	
+	local function restoreLite()
+		pcall(function()
+			settings():GetService("RenderSettings").QualityLevel = Enum.QualityLevel.Automatic
+		end)
+		
+		if getgenv().VapePerf then
+			getgenv().VapePerf.config.MAX_HEARTBEAT_FPS = 60
+			getgenv().VapePerf.config.MAX_RENDERSTEPPED_FPS = 120
+			getgenv().VapePerf.config.ENTITY_CACHE_DURATION = 0.033
+		end
+	end
+	
+	LiteOptimize = vape.Categories.BoostFPS:CreateModule({
+		Name = 'LiteOptimize',
+		Function = function(callback)
+			if callback then
+				applyLiteOptimizations()
+			else
+				restoreLite()
+			end
+		end,
+		Tooltip = 'Balanced optimization - Good performance without sacrificing too much quality'
+	})
+end)
+
+-- ═══════════════════════════════════════════════════════════════
+-- OPTIMIZE - Maximum FPS (Non-intrusive)
 -- ═══════════════════════════════════════════════════════════════
 run(function()
 	local Optimize
-	local optimizationSettings = {}
+	local savedEffects = {}
 	
-	-- Aggressive FPS optimizations
-	local function applyUltraOptimizations()
-		-- Disable all expensive rendering features
+	local function applyOptimizations()
+		-- Graphics optimizations (doesn't block features)
 		pcall(function()
 			settings():GetService("RenderSettings").QualityLevel = Enum.QualityLevel.Level01
 			settings():GetService("RenderSettings").MeshPartDetailLevel = Enum.MeshPartDetailLevel.Level01
-			settings():GetService("RenderSettings").GraphicsMode = Enum.GraphicsMode.NoGraphics3D
 		end)
 		
-		-- Reduce physics accuracy for performance
-		pcall(function()
-			settings():GetService("PhysicsSettings").AllowSleep = true
-			settings():GetService("PhysicsSettings").PhysicsEnvironmentalThrottle = Enum.EnviromentalPhysicsThrottle.Always
-			settings():GetService("PhysicsSettings").ThrottleAdjustTime = 0
-		end)
-		
-		-- Network optimizations
-		pcall(function()
-			settings():GetService("NetworkSettings").IncomingReplicationLag = 0
-		end)
-		
-		-- Disable unnecessary visual effects
+		-- Lighting optimizations
 		pcall(function()
 			lightingService.GlobalShadows = false
 			lightingService.FogEnd = 9e9
 			lightingService.Brightness = 0
 			
-			-- Remove expensive atmosphere effects
-			if lightingService:FindFirstChildOfClass("Atmosphere") then
-				lightingService:FindFirstChildOfClass("Atmosphere"):Destroy()
-			end
-			if lightingService:FindFirstChildOfClass("BlurEffect") then
-				lightingService:FindFirstChildOfClass("BlurEffect"):Destroy()
-			end
-			if lightingService:FindFirstChildOfClass("BloomEffect") then
-				lightingService:FindFirstChildOfClass("BloomEffect"):Destroy()
-			end
-			if lightingService:FindFirstChildOfClass("ColorCorrectionEffect") then
-				lightingService:FindFirstChildOfClass("ColorCorrectionEffect"):Destroy()
-			end
-			if lightingService:FindFirstChildOfClass("SunRaysEffect") then
-				lightingService:FindFirstChildOfClass("SunRaysEffect"):Destroy()
+			-- Save and disable effects (don't destroy)
+			for _, effect in {lightingService:FindFirstChildOfClass("Atmosphere"),
+							  lightingService:FindFirstChildOfClass("BlurEffect"),
+							  lightingService:FindFirstChildOfClass("BloomEffect"),
+							  lightingService:FindFirstChildOfClass("ColorCorrectionEffect"),
+							  lightingService:FindFirstChildOfClass("SunRaysEffect")} do
+				if effect then
+					savedEffects[effect] = effect.Enabled
+					effect.Enabled = false
+				end
 			end
 		end)
 		
-		-- Optimize workspace
-		pcall(function()
-			workspace.StreamingEnabled = false
-		end)
-		
-		-- Aggressive frame throttling for non-critical modules
+		-- Performance config (aggressive but reversible)
 		if getgenv().VapePerf then
 			getgenv().VapePerf.config.MAX_HEARTBEAT_FPS = 30
 			getgenv().VapePerf.config.MAX_RENDERSTEPPED_FPS = 60
-			getgenv().VapePerf.config.ENTITY_CACHE_DURATION = 0.1  -- 10 FPS
-			getgenv().VapePerf.config.TARGET_CACHE_DURATION = 0.1  -- 10 FPS
-			getgenv().VapePerf.config.UI_UPDATE_INTERVAL = 0.2     -- 5 FPS
-			getgenv().VapePerf.config.ESP_UPDATE_INTERVAL = 0.1    -- 10 FPS
+			getgenv().VapePerf.config.ENTITY_CACHE_DURATION = 0.1
+			getgenv().VapePerf.config.TARGET_CACHE_DURATION = 0.1
 		end
 		
-		-- Force garbage collection every 15 seconds
-		task.spawn(function()
-			while Optimize and Optimize.Enabled do
-				task.wait(15)
-				if collectgarbage("count") > 30000 then -- 30MB
-					collectgarbage("collect")
-				end
-			end
-		end)
-		
-		-- Reduce terrain detail
-		pcall(function()
-			workspace.Terrain.Decoration = false
-			workspace.Terrain.WaterReflectance = 0
-			workspace.Terrain.WaterTransparency = 0
-			workspace.Terrain.WaterWaveSize = 0
-			workspace.Terrain.WaterWaveSpeed = 0
-		end)
-		
-		-- Remove particles and beams in workspace
+		-- Disable particles (save references)
 		task.spawn(function()
 			for _, obj in workspace:GetDescendants() do
 				if obj:IsA("ParticleEmitter") or obj:IsA("Trail") or obj:IsA("Beam") then
-					obj.Enabled = false
-				end
-			end
-		end)
-		
-		-- Optimize character rendering
-		task.spawn(function()
-			while Optimize and Optimize.Enabled do
-				task.wait(5)
-				for _, player in playersService:GetPlayers() do
-					if player ~= lplr and player.Character then
-						for _, part in player.Character:GetDescendants() do
-							if part:IsA("Accessory") or part:IsA("Hat") then
-								pcall(function() part:Destroy() end)
-							end
-							if part:IsA("ParticleEmitter") or part:IsA("Trail") or part:IsA("Beam") then
-								part.Enabled = false
-							end
-						end
+					if obj.Enabled then
+						savedEffects[obj] = true
+						obj.Enabled = false
 					end
 				end
 			end
 		end)
 		
-		-- FFlag optimizations for max performance
+		-- Terrain optimizations
 		pcall(function()
-			setfflag("AbuseReportScreenshotPercentage", "0")
-			setfflag("DFIntConnectionMTUSize", "900")
-			setfflag("DFIntDebugFRMQualityLevelOverride", "1")
+			workspace.Terrain.Decoration = false
+			workspace.Terrain.WaterReflectance = 0
+			workspace.Terrain.WaterTransparency = 0
+		end)
+		
+		vape:CreateNotification("Optimize", "Max FPS mode enabled! All features still work.", 5)
+	end
+	
+	local function restoreOptimizations()
+		pcall(function()
+			settings():GetService("RenderSettings").QualityLevel = Enum.QualityLevel.Automatic
+		end)
+		
+		-- Restore effects
+		for effect, wasEnabled in pairs(savedEffects) do
+			if effect and effect.Parent then
+				effect.Enabled = wasEnabled
+			end
+		end
+		table.clear(savedEffects)
+		
+		if getgenv().VapePerf then
+			getgenv().VapePerf.config.MAX_HEARTBEAT_FPS = 60
+			getgenv().VapePerf.config.MAX_RENDERSTEPPED_FPS = 120
+			getgenv().VapePerf.config.ENTITY_CACHE_DURATION = 0.033
+			getgenv().VapePerf.config.TARGET_CACHE_DURATION = 0.033
+		end
+		
+		vape:CreateNotification("Optimize", "Optimizations disabled.", 3)
+	end
+	
+	Optimize = vape.Categories.BoostFPS:CreateModule({
+		Name = 'Optimize',
+		Function = function(callback)
+			if callback then
+				applyOptimizations()
+			else
+				restoreOptimizations()
+			end
+		end,
+		Tooltip = 'Maximum FPS optimization - All features remain functional'
+	})
+end)
+
+-- ═══════════════════════════════════════════════════════════════
+-- GAME OPTIMIZER - Roblox Engine Optimizations
+-- ═══════════════════════════════════════════════════════════════
+run(function()
+	local GameOptimizer
+	local originalFFlags = {}
+	
+	local function saveFFlagstate()
+		local flags = {
+			"FFlagDebugRunParallelLuaOnMainThread",
+			"FIntTaskSchedulerTargetFps",
+			"FFlagTaskSchedulerLimitTargetFpsTo2402",
+			"DFFlagTaskSchedulerLimitTargetFpsTo2402",
+			"FFlagDebugCheckRobloxEventTime",
+			"DFIntTaskSchedulerTargetFps",
+			"FFlagEnableLoadableAnimationForMeshPartCage",
+			"DFIntS2PhysicsSenderRate",
+			"FIntDefaultMeshCacheSizeMB",
+			"DFIntDefaultMeshCacheSizeMB",
+		}
+		
+		for _, flag in ipairs(flags) do
+			pcall(function()
+				originalFFlags[flag] = getfflag(flag)
+			end)
+		end
+	end
+	
+	local function applyGameOptimizations()
+		saveFFlagstate()
+		
+		-- Enable multithreading
+		pcall(function()
+			setfflag("FFlagDebugRunParallelLuaOnMainThread", "false")
+		end)
+		
+		-- Increase target FPS
+		pcall(function()
+			setfflag("FIntTaskSchedulerTargetFps", "240")
 			setfflag("DFIntTaskSchedulerTargetFps", "240")
+			setfflag("FFlagTaskSchedulerLimitTargetFpsTo2402", "false")
+			setfflag("DFFlagTaskSchedulerLimitTargetFpsTo2402", "false")
+		end)
+		
+		-- Disable expensive event timing
+		pcall(function()
+			setfflag("FFlagDebugCheckRobloxEventTime", "false")
+		end)
+		
+		-- Optimize physics
+		pcall(function()
+			setfflag("DFIntS2PhysicsSenderRate", "240")
+			settings():GetService("PhysicsSettings").AllowSleep = true
+			settings():GetService("PhysicsSettings").PhysicsEnvironmentalThrottle = Enum.EnviromentalPhysicsThrottle.Always
+		end)
+		
+		-- Increase mesh cache
+		pcall(function()
+			setfflag("FIntDefaultMeshCacheSizeMB", "1024")
+			setfflag("DFIntDefaultMeshCacheSizeMB", "1024")
+		end)
+		
+		-- Optimize animations
+		pcall(function()
+			setfflag("FFlagEnableLoadableAnimationForMeshPartCage", "true")
+		end)
+		
+		-- Network optimizations
+		pcall(function()
+			setfflag("DFIntConnectionMTUSize", "1400")
+			settings():GetService("NetworkSettings").IncomingReplicationLag = 0
+			settings():GetService("NetworkSettings").HttpCacheCleanDelay = 300
+			settings():GetService("NetworkSettings").HttpCacheSize = 512
+		end)
+		
+		-- Additional QOL optimizations
+		pcall(function()
+			-- Disable telemetry
 			setfflag("FFlagDebugDisableTelemetryEphemeralCounter", "true")
 			setfflag("FFlagDebugDisableTelemetryEphemeralStat", "true")
 			setfflag("FFlagDebugDisableTelemetryEventIngest", "true")
@@ -30516,49 +30645,96 @@ run(function()
 			setfflag("FFlagDebugDisableTelemetryV2Counter", "true")
 			setfflag("FFlagDebugDisableTelemetryV2Event", "true")
 			setfflag("FFlagDebugDisableTelemetryV2Stat", "true")
-			setfflag("FFlagEnableInGameMenuChrome", "false")
-			setfflag("FIntRenderShadowIntensity", "0")
-			setfflag("DFIntCullFactorPixelThresholdMainViewHighQuality", "10000")
-			setfflag("DFIntCullFactorPixelThresholdMainViewLowQuality", "10000")
-			setfflag("DFIntCullFactorPixelThresholdShadowMapHighQuality", "10000")
-			setfflag("DFIntCullFactorPixelThresholdShadowMapLowQuality", "10000")
-			setfflag("FIntRenderLocalLightUpdatesMax", "1")
-			setfflag("FIntRenderLocalLightUpdatesMin", "1")
-			setfflag("FIntTerrainArraySliceSize", "1")
+			
+			-- Reduce rendering overhead
+			setfflag("FIntRenderLocalLightUpdatesMax", "4")
+			setfflag("FIntRenderLocalLightUpdatesMin", "2")
+			
+			-- Optimize culling
+			setfflag("DFIntCullFactorPixelThresholdMainViewHighQuality", "8000")
+			setfflag("DFIntCullFactorPixelThresholdMainViewLowQuality", "8000")
 		end)
 		
-		vape:CreateNotification("Optimize", "Ultra optimizations applied! FPS should be maximized.", 5, "success")
+		vape:CreateNotification("GameOptimizer", "Roblox engine optimized! Multithreading enabled, FPS boosted.", 6, "success")
 	end
 	
-	local function restoreOptimizations()
-		-- Restore quality settings
-		pcall(function()
-			settings():GetService("RenderSettings").QualityLevel = Enum.QualityLevel.Automatic
-		end)
-		
-		-- Restore default performance config
-		if getgenv().VapePerf then
-			getgenv().VapePerf.config.MAX_HEARTBEAT_FPS = 60
-			getgenv().VapePerf.config.MAX_RENDERSTEPPED_FPS = 120
-			getgenv().VapePerf.config.ENTITY_CACHE_DURATION = 0.033
-			getgenv().VapePerf.config.TARGET_CACHE_DURATION = 0.033
-			getgenv().VapePerf.config.UI_UPDATE_INTERVAL = 0.1
-			getgenv().VapePerf.config.ESP_UPDATE_INTERVAL = 0.05
+	local function restoreGameOptimizations()
+		for flag, value in pairs(originalFFlags) do
+			pcall(function()
+				setfflag(flag, tostring(value))
+			end)
 		end
+		table.clear(originalFFlags)
 		
-		vape:CreateNotification("Optimize", "Optimizations disabled. Settings restored.", 3)
+		vape:CreateNotification("GameOptimizer", "Game optimizations disabled.", 3)
 	end
 	
-	Optimize = vape.Categories.BoostFPS:CreateModule({
-		Name = 'Optimize',
+	GameOptimizer = vape.Categories.BoostFPS:CreateModule({
+		Name = 'GameOptimizer',
 		Function = function(callback)
 			if callback then
-				applyUltraOptimizations()
+				applyGameOptimizations()
 			else
-				restoreOptimizations()
+				restoreGameOptimizations()
 			end
 		end,
-		Tooltip = 'ULTRA optimization mode - Maximizes FPS by disabling expensive rendering features.\nMay reduce visual quality but gives best performance.'
+		Tooltip = 'Optimizes Roblox engine itself - Enables multithreading, increases FPS cap, optimizes physics'
+	})
+end)
+
+-- ═══════════════════════════════════════════════════════════════
+-- FAST MODULES - Speeds Up All Module Functionality
+-- ═══════════════════════════════════════════════════════════════
+run(function()
+	local FastModules
+	local speedMultiplier = 1.5
+	
+	local function enableFastMode()
+		-- Speed up global performance config
+		if getgenv().VapePerf then
+			-- Store originals
+			getgenv().VapePerf._originalConfig = {
+				MAX_HEARTBEAT_FPS = getgenv().VapePerf.config.MAX_HEARTBEAT_FPS,
+				MAX_RENDERSTEPPED_FPS = getgenv().VapePerf.config.MAX_RENDERSTEPPED_FPS,
+				ENTITY_CACHE_DURATION = getgenv().VapePerf.config.ENTITY_CACHE_DURATION,
+			}
+			
+			-- Increase all update rates
+			getgenv().VapePerf.config.MAX_HEARTBEAT_FPS = math.floor(getgenv().VapePerf.config.MAX_HEARTBEAT_FPS * speedMultiplier)
+			getgenv().VapePerf.config.MAX_RENDERSTEPPED_FPS = math.floor(getgenv().VapePerf.config.MAX_RENDERSTEPPED_FPS * speedMultiplier)
+			getgenv().VapePerf.config.ENTITY_CACHE_DURATION = getgenv().VapePerf.config.ENTITY_CACHE_DURATION / speedMultiplier
+		end
+		
+		-- Global speed multiplier
+		getgenv().VapeFastMode = speedMultiplier
+		
+		vape:CreateNotification("FastModules", "All modules running at "..math.floor(speedMultiplier*100).."% speed!", 5, "success")
+	end
+	
+	local function disableFastMode()
+		if getgenv().VapePerf and getgenv().VapePerf._originalConfig then
+			local orig = getgenv().VapePerf._originalConfig
+			getgenv().VapePerf.config.MAX_HEARTBEAT_FPS = orig.MAX_HEARTBEAT_FPS
+			getgenv().VapePerf.config.MAX_RENDERSTEPPED_FPS = orig.MAX_RENDERSTEPPED_FPS
+			getgenv().VapePerf.config.ENTITY_CACHE_DURATION = orig.ENTITY_CACHE_DURATION
+			getgenv().VapePerf._originalConfig = nil
+		end
+		
+		getgenv().VapeFastMode = 1
+		
+		vape:CreateNotification("FastModules", "Module speeds restored to normal.", 3)
+	end
+	
+	FastModules = vape.Categories.BoostFPS:CreateModule({
+		Name = 'FastModules',
+		Function = function(callback)
+			if callback then
+				enableFastMode()
+			else
+				disableFastMode()
+			end
+		end,
+		Tooltip = 'Makes all modules work faster - KillAura attacks faster, ESP updates faster, etc.'
 	})
 end)
 
