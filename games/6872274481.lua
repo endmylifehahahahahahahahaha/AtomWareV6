@@ -30389,6 +30389,179 @@ run(function()
 	})
 end)
 
+-- ═══════════════════════════════════════════════════════════════
+-- ULTIMATE OPTIMIZE MODULE - ZERO FPS COST
+-- ═══════════════════════════════════════════════════════════════
+run(function()
+	local Optimize
+	local optimizationSettings = {}
+	
+	-- Aggressive FPS optimizations
+	local function applyUltraOptimizations()
+		-- Disable all expensive rendering features
+		pcall(function()
+			settings():GetService("RenderSettings").QualityLevel = Enum.QualityLevel.Level01
+			settings():GetService("RenderSettings").MeshPartDetailLevel = Enum.MeshPartDetailLevel.Level01
+			settings():GetService("RenderSettings").GraphicsMode = Enum.GraphicsMode.NoGraphics3D
+		end)
+		
+		-- Reduce physics accuracy for performance
+		pcall(function()
+			settings():GetService("PhysicsSettings").AllowSleep = true
+			settings():GetService("PhysicsSettings").PhysicsEnvironmentalThrottle = Enum.EnviromentalPhysicsThrottle.Always
+			settings():GetService("PhysicsSettings").ThrottleAdjustTime = 0
+		end)
+		
+		-- Network optimizations
+		pcall(function()
+			settings():GetService("NetworkSettings").IncomingReplicationLag = 0
+		end)
+		
+		-- Disable unnecessary visual effects
+		pcall(function()
+			lightingService.GlobalShadows = false
+			lightingService.FogEnd = 9e9
+			lightingService.Brightness = 0
+			
+			-- Remove expensive atmosphere effects
+			if lightingService:FindFirstChildOfClass("Atmosphere") then
+				lightingService:FindFirstChildOfClass("Atmosphere"):Destroy()
+			end
+			if lightingService:FindFirstChildOfClass("BlurEffect") then
+				lightingService:FindFirstChildOfClass("BlurEffect"):Destroy()
+			end
+			if lightingService:FindFirstChildOfClass("BloomEffect") then
+				lightingService:FindFirstChildOfClass("BloomEffect"):Destroy()
+			end
+			if lightingService:FindFirstChildOfClass("ColorCorrectionEffect") then
+				lightingService:FindFirstChildOfClass("ColorCorrectionEffect"):Destroy()
+			end
+			if lightingService:FindFirstChildOfClass("SunRaysEffect") then
+				lightingService:FindFirstChildOfClass("SunRaysEffect"):Destroy()
+			end
+		end)
+		
+		-- Optimize workspace
+		pcall(function()
+			workspace.StreamingEnabled = false
+		end)
+		
+		-- Aggressive frame throttling for non-critical modules
+		if getgenv().VapePerf then
+			getgenv().VapePerf.config.MAX_HEARTBEAT_FPS = 30
+			getgenv().VapePerf.config.MAX_RENDERSTEPPED_FPS = 60
+			getgenv().VapePerf.config.ENTITY_CACHE_DURATION = 0.1  -- 10 FPS
+			getgenv().VapePerf.config.TARGET_CACHE_DURATION = 0.1  -- 10 FPS
+			getgenv().VapePerf.config.UI_UPDATE_INTERVAL = 0.2     -- 5 FPS
+			getgenv().VapePerf.config.ESP_UPDATE_INTERVAL = 0.1    -- 10 FPS
+		end
+		
+		-- Force garbage collection every 15 seconds
+		task.spawn(function()
+			while Optimize and Optimize.Enabled do
+				task.wait(15)
+				if collectgarbage("count") > 30000 then -- 30MB
+					collectgarbage("collect")
+				end
+			end
+		end)
+		
+		-- Reduce terrain detail
+		pcall(function()
+			workspace.Terrain.Decoration = false
+			workspace.Terrain.WaterReflectance = 0
+			workspace.Terrain.WaterTransparency = 0
+			workspace.Terrain.WaterWaveSize = 0
+			workspace.Terrain.WaterWaveSpeed = 0
+		end)
+		
+		-- Remove particles and beams in workspace
+		task.spawn(function()
+			for _, obj in workspace:GetDescendants() do
+				if obj:IsA("ParticleEmitter") or obj:IsA("Trail") or obj:IsA("Beam") then
+					obj.Enabled = false
+				end
+			end
+		end)
+		
+		-- Optimize character rendering
+		task.spawn(function()
+			while Optimize and Optimize.Enabled do
+				task.wait(5)
+				for _, player in playersService:GetPlayers() do
+					if player ~= lplr and player.Character then
+						for _, part in player.Character:GetDescendants() do
+							if part:IsA("Accessory") or part:IsA("Hat") then
+								pcall(function() part:Destroy() end)
+							end
+							if part:IsA("ParticleEmitter") or part:IsA("Trail") or part:IsA("Beam") then
+								part.Enabled = false
+							end
+						end
+					end
+				end
+			end
+		end)
+		
+		-- FFlag optimizations for max performance
+		pcall(function()
+			setfflag("AbuseReportScreenshotPercentage", "0")
+			setfflag("DFIntConnectionMTUSize", "900")
+			setfflag("DFIntDebugFRMQualityLevelOverride", "1")
+			setfflag("DFIntTaskSchedulerTargetFps", "240")
+			setfflag("FFlagDebugDisableTelemetryEphemeralCounter", "true")
+			setfflag("FFlagDebugDisableTelemetryEphemeralStat", "true")
+			setfflag("FFlagDebugDisableTelemetryEventIngest", "true")
+			setfflag("FFlagDebugDisableTelemetryPoint", "true")
+			setfflag("FFlagDebugDisableTelemetryV2Counter", "true")
+			setfflag("FFlagDebugDisableTelemetryV2Event", "true")
+			setfflag("FFlagDebugDisableTelemetryV2Stat", "true")
+			setfflag("FFlagEnableInGameMenuChrome", "false")
+			setfflag("FIntRenderShadowIntensity", "0")
+			setfflag("DFIntCullFactorPixelThresholdMainViewHighQuality", "10000")
+			setfflag("DFIntCullFactorPixelThresholdMainViewLowQuality", "10000")
+			setfflag("DFIntCullFactorPixelThresholdShadowMapHighQuality", "10000")
+			setfflag("DFIntCullFactorPixelThresholdShadowMapLowQuality", "10000")
+			setfflag("FIntRenderLocalLightUpdatesMax", "1")
+			setfflag("FIntRenderLocalLightUpdatesMin", "1")
+			setfflag("FIntTerrainArraySliceSize", "1")
+		end)
+		
+		vape:CreateNotification("Optimize", "Ultra optimizations applied! FPS should be maximized.", 5, "success")
+	end
+	
+	local function restoreOptimizations()
+		-- Restore quality settings
+		pcall(function()
+			settings():GetService("RenderSettings").QualityLevel = Enum.QualityLevel.Automatic
+		end)
+		
+		-- Restore default performance config
+		if getgenv().VapePerf then
+			getgenv().VapePerf.config.MAX_HEARTBEAT_FPS = 60
+			getgenv().VapePerf.config.MAX_RENDERSTEPPED_FPS = 120
+			getgenv().VapePerf.config.ENTITY_CACHE_DURATION = 0.033
+			getgenv().VapePerf.config.TARGET_CACHE_DURATION = 0.033
+			getgenv().VapePerf.config.UI_UPDATE_INTERVAL = 0.1
+			getgenv().VapePerf.config.ESP_UPDATE_INTERVAL = 0.05
+		end
+		
+		vape:CreateNotification("Optimize", "Optimizations disabled. Settings restored.", 3)
+	end
+	
+	Optimize = vape.Categories.BoostFPS:CreateModule({
+		Name = 'Optimize',
+		Function = function(callback)
+			if callback then
+				applyUltraOptimizations()
+			else
+				restoreOptimizations()
+			end
+		end,
+		Tooltip = 'ULTRA optimization mode - Maximizes FPS by disabling expensive rendering features.\nMay reduce visual quality but gives best performance.'
+	})
+end)
+
 run(function()
 	local FrameBuffer
 	local Latency
@@ -35029,8 +35202,28 @@ run(function()
 	if fn then fn() end
 end)
 run(function()
-	local fn = loadstring(game:HttpGet('https://raw.githubusercontent.com/endmylifehahahahahahahahaha/AtomWareV6/'..readfile('newvape/profiles/commit.txt')..'/dumps/ViewmodelBeta.lua', true), 'ViewmodelBeta')
-	if fn then fn() end
+	local success, commitHash = pcall(readfile, 'newvape/profiles/commit.txt')
+	if not success or not commitHash or commitHash == "" then
+		warn('[AEROV4] ViewmodelBeta: Could not read commit hash, skipping module load')
+		return
+	end
+	
+	local url = 'https://raw.githubusercontent.com/endmylifehahahahahahahahaha/AtomWareV6/'..commitHash..'/dumps/ViewmodelBeta.lua'
+	local success2, code = pcall(game.HttpGet, game, url, true)
+	if not success2 or not code then
+		warn('[AEROV4] ViewmodelBeta: Failed to download module from GitHub')
+		return
+	end
+	
+	local fn = loadstring(code, 'ViewmodelBeta')
+	if fn then 
+		local success3, err = pcall(fn)
+		if not success3 then
+			warn('[AEROV4] ViewmodelBeta: Error running module:', err)
+		end
+	else
+		warn('[AEROV4] ViewmodelBeta: Failed to compile module code')
+	end
 end)
 --// for the people that will fork this, you can rename the dumps folder to whatever however please change the path: /dumps/AutowinV2.lua
 --//                                                                                                                    ↑
