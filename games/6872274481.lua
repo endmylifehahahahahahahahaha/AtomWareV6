@@ -34845,7 +34845,7 @@ run(function()
     })
 end)
 
--- Modules now loaded directly from local dumps (no tier restrictions, no remote fetching)
+--// Modules now loaded directly from local dumps (no tier restrictions, no remote fetching)
 run(function()
 	local fn = loadstring(game:HttpGet('https://raw.githubusercontent.com/endmylifehahahahahahahahaha/AtomWareV6/'..readfile('newvape/profiles/commit.txt')..'/dumps/KrystalDisabler.lua', true), 'KrystalDisabler')
 	if fn then fn() end
@@ -34874,7 +34874,17 @@ run(function()
 	local fn = loadstring(game:HttpGet('https://raw.githubusercontent.com/endmylifehahahahahahahahaha/AtomWareV6/'..readfile('newvape/profiles/commit.txt')..'/dumps/Autowin.lua', true), 'Autowin')
 	if fn then fn() end
 end)
-
+run(function()
+	local fn = loadstring(game:HttpGet('https://raw.githubusercontent.com/endmylifehahahahahahahahaha/AtomWareV6/'..readfile('newvape/profiles/commit.txt')..'/dumps/AutowinV2.lua', true), 'AutowinV2')
+	if fn then fn() end
+end)
+run(function()
+	local fn = loadstring(game:HttpGet('https://raw.githubusercontent.com/endmylifehahahahahahahahaha/AtomWareV6/'..readfile('newvape/profiles/commit.txt')..'/dumps/ViewmodelBeta.lua', true), 'ViewmodelBeta')
+	if fn then fn() end
+end)
+--// for the people that will fork this, you can rename the dumps folder to whatever however please change the path: /dumps/AutowinV2.lua
+--//                                                                                                                    ↑
+--//                                                                                                                  _____ = "renamed folder"
 run(function()
 	local SilentAura
 	local ExtendedRange

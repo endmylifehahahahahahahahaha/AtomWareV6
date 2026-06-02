@@ -206,7 +206,6 @@ run(function()
             end
         end))
     end
-
     local function hookClient()
         if OldGet then return end
         OldGet = bedwars.Client.Get
