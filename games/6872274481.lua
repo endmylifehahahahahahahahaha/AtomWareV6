@@ -5,6 +5,11 @@ local run = function(func)
         warn('[AEROV4] module failed to load: ' .. tostring(err))
     end
 end
+
+-- Performance optimization globals
+local _performanceMode = true  -- Enable optimizations
+local _gcThreshold = 0
+local _lastGCTime = 0
 local vapeEvents = setmetatable({}, {
 	__index = function(self, index)
 		self[index] = Instance.new('BindableEvent')

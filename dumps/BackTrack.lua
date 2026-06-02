@@ -200,7 +200,8 @@ run(function()
                     time = tick(),
                     pos = targetRoot.Position
                 })
-                if #posHistory > 200 then
+                -- Limit history to prevent memory leak
+                if #posHistory > 150 then
                     table.remove(posHistory, 1)
                 end
             end
@@ -276,6 +277,9 @@ run(function()
     local function fullCleanup()
         unHookClient()
         stopRaknetHook()
+        -- Clear position history to free memory
+        table.clear(posHistory)
+        posHistory = {}
     end
 
     BackTrack = vape.Categories.World:CreateModule({

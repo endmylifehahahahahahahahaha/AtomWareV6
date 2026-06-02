@@ -82,34 +82,37 @@ local hooktypes = {
 }
 
 local rakNet = typeof(raknet) == "table"
+local hookRef1 = nil
+local hookRef2 = nil
 
+-- Improved hook with error handling and memory management
 local function rakhook(pckt)
 	if not pckt then return end
-	if pckt.PacketId == 0x1B or (pckt.AsArray and pckt.AsArray[1] == 0x1B) then
-		local success, err = pcall(function()
+	local success, err = pcall(function()
+		if pckt.PacketId == 0x1B or (pckt.AsArray and pckt.AsArray[1] == 0x1B) then
 			local buf = pckt.AsBuffer or buffer.create(100)
 			buffer.writeu32(buf, 1, 0xFFFFFFFF)
 			pckt:SetData(buf)
-		end)
-		if not success then
-			warn("[Desync] Hook error:", err)
 		end
+	end)
+	if not success then
+		-- Silent fail to prevent spam
 	end
 end
 
 local function rakHookk(pckt)
 	if not pckt then return end
-	if pckt.PacketId == 0x1B then
-		local success, err = pcall(function()
+	local success, err = pcall(function()
+		if pckt.PacketId == 0x1B then
 			local buf = pckt.AsBuffer
 			if buf then
 				buffer.writeu32(buf, 1, 0xFFFFFFFF)
 				pckt:SetData(buf)
 			end
-		end)
-		if not success then
-			warn("[Desync] Hook2 error:", err)
 		end
+	end)
+	if not success then
+		-- Silent fail to prevent spam
 	end
 end
 
@@ -125,8 +128,10 @@ Desync = vape.Categories.Blatant:CreateModule({
 			if rakNet then
 				vape:CreateNotification("Vape", "RakNet founded! Attempting to use server-sided desync...", 8)
 
+				-- Try first hook method
 				local suc1 = pcall(function()
-					return raknet.add_send_hook(rakhook)
+					hookRef1 = rakhook
+					raknet.add_send_hook(hookRef1)
 				end)
 
 				if suc1 then
@@ -136,8 +141,10 @@ Desync = vape.Categories.Blatant:CreateModule({
 				end
 
 				task.wait(0.5)
+				-- Try second hook method
 				local suc2 = pcall(function()
-					return raknet.add_send_hook(rakHookk)
+					hookRef2 = rakHookk
+					raknet.add_send_hook(hookRef2)
 				end)
 
 				if suc2 then
@@ -161,16 +168,26 @@ Desync = vape.Categories.Blatant:CreateModule({
 			else
 				vape:CreateNotification("Vape", "All desync methods failed. Disabling module...", 8, "alert")
 				task.delay(1.5, function()
-					Desync:Toggle(false)
+					if Desync and Desync.Enabled then
+						Desync:Toggle(false)
+					end
 				end)
 			end
 
 		else
+			-- Proper cleanup to prevent crashes
 			if rakNet then
-				if hooktypes.rakhook1 then
-					pcall(function() raknet.remove_send_hook(rakhook) end)
-				elseif hooktypes.rakhook2 then
-					pcall(function() raknet.remove_send_hook(rakHookk) end)
+				if hooktypes.rakhook1 and hookRef1 then
+					pcall(function() 
+						raknet.remove_send_hook(hookRef1) 
+						hookRef1 = nil
+					end)
+				end
+				if hooktypes.rakhook2 and hookRef2 then
+					pcall(function() 
+						raknet.remove_send_hook(hookRef2)
+						hookRef2 = nil
+					end)
 				end
 			end
 			if hooktypes.fflag then
