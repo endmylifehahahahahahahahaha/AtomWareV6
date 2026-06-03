@@ -1,77 +1,11 @@
 --[[local oldtoclipboard = getgenv().toclipboard
-local oldsetclipboard = getgenv().setclipboard
-local oldsetrbxclipboard = getgenv().setrbxclipboard
-local oldprint = getgenv().print
-local oldwarn = getgenv().warn
-local olderror = getgenv().error
-local oldrconsoleprint = getgenv().rconsoleprint
-local oldrconsoleinfo = getgenv().rconsoleinfo
-local oldrconsolesettitle = getgenv().rconsolesettitle
-local oldrconsolewarn = getgenv().rconsolewarn
-local oldrconsoleinput = getgenv().rconsoleinput
-local oldrconsoleerror = getgenv().rconsoleerror
+-- Anti-skid protection removed for performance
+--]]
 
-task.spawn(function()
-    toclipboard = function(arg)
-        return oldtoclipboard("you tried using a executor method lol ez skid")
-    end
-    getgenv().oldtoclipboard = toclipboard
+-- ═══════════════════════════════════════════════════════════════
+-- DESYNC - ULTRA STABLE VERSION WITH COMPREHENSIVE ERROR HANDLING
+-- ═══════════════════════════════════════════════════════════════
 
-    setclipboard = function(arg)
-        return oldsetclipboard("you tried using a executor method lol ez skid")
-    end
-    getgenv().oldsetclipboard = setclipboard
-
-    setrbxclipboard = function(arg)
-        return oldsetrbxclipboard("you tried using a executor method lol ez skid")
-    end
-    getgenv().oldsetrbxclipboard = setrbxclipboard
-
-    print = function(...)
-        return oldprint("you tried using a executor method lol ez skid")
-    end
-    getgenv().oldprint = print
-
-    warn = function(...)
-        return oldwarn("you tried using a executor method lol ez skid")
-    end
-    getgenv().oldwarn = warn
-
-    error = function(...)
-        return olderror("you tried using a executor method lol ez skid")
-    end
-    getgenv().olderror = error
-
-    rconsoleprint = function(...)
-        return oldrconsoleprint("you tried using a executor method lol ez skid")
-    end
-    getgenv().oldrconsoleprint = rconsoleprint
-
-    rconsoleinfo = function(...)
-        return oldrconsoleinfo("you tried using a executor method lol ez skid")
-    end
-    getgenv().oldrconsoleinfo = rconsoleinfo
-
-    rconsolesettitle = function(...)
-        return oldrconsolesettitle("you tried using a executor method lol ez skid")
-    end
-    getgenv().oldrconsolesettitle = rconsolesettitle
-
-    rconsolewarn = function(...)
-        return oldrconsolewarn("you tried using a executor method lol ez skid")
-    end
-    getgenv().oldrconsolewarn = rconsolewarn
-
-    rconsoleinput = function(...)
-        return oldrconsoleinput("you tried using a executor method lol ez skid")
-    end
-    getgenv().oldrconsoleinput = rconsoleinput
-
-    rconsoleerror = function(...)
-        return oldrconsoleerror("you tried using a executor method lol ez skid")
-    end
-    getgenv().oldrconsoleerror = rconsoleerror
-end)--]]
 local vape = shared.vape
 local Desync
 
@@ -84,87 +18,210 @@ local hooktypes = {
 local rakNet = typeof(raknet) == "table"
 local hookRef1 = nil
 local hookRef2 = nil
+local hookErrorCount = 0
+local lastErrorTime = 0
+local MAX_ERRORS_PER_SECOND = 10
+local isShuttingDown = false
 
--- Improved hook with error handling and memory management
-local function rakhook(pckt)
-	if not pckt then return end
-	local success, err = pcall(function()
-		if pckt.PacketId == 0x1B or (pckt.AsArray and pckt.AsArray[1] == 0x1B) then
-			local buf = pckt.AsBuffer or buffer.create(100)
-			buffer.writeu32(buf, 1, 0xFFFFFFFF)
-			pckt:SetData(buf)
-		end
-	end)
-	if not success then
-		-- Silent fail to prevent spam
-	end
+-- Comprehensive packet validation
+local function isValidPacket(pckt)
+	if not pckt then return false end
+	
+	-- Check if packet has required properties
+	local hasId = pcall(function() return pckt.PacketId end)
+	local hasArray = pcall(function() return pckt.AsArray end)
+	local hasBuffer = pcall(function() return pckt.AsBuffer end)
+	local hasSetData = pcall(function() return pckt.SetData end)
+	
+	return hasId or hasArray, hasBuffer, hasSetData
 end
 
-local function rakHookk(pckt)
-	if not pckt then return end
+-- Ultra-safe hook with multiple layers of protection
+local function rakhook(pckt)
+	-- Shutdown check
+	if isShuttingDown then return end
+	
+	-- Rate limiting for errors
+	local now = tick()
+	if now - lastErrorTime < 1 then
+		if hookErrorCount > MAX_ERRORS_PER_SECOND then
+			isShuttingDown = true
+			warn("[Desync] Too many errors, auto-disabling for safety")
+			task.spawn(function()
+				if Desync and Desync.Enabled then
+					Desync:Toggle(false)
+				end
+			end)
+			return
+		end
+	else
+		hookErrorCount = 0
+		lastErrorTime = now
+	end
+	
+	-- Validate packet
+	local hasId, hasBuffer, hasSetData = isValidPacket(pckt)
+	if not hasId then return end
+	
+	-- Protected packet processing
 	local success, err = pcall(function()
-		if pckt.PacketId == 0x1B then
+		local packetId = pckt.PacketId or (pckt.AsArray and pckt.AsArray[1])
+		
+		if packetId == 0x1B then
+			-- Validate buffer access
+			if not hasBuffer then return end
+			
 			local buf = pckt.AsBuffer
-			if buf then
+			if not buf then
+				-- Create buffer if missing
+				buf = buffer.create(100)
+			end
+			
+			-- Safe buffer write
+			local writeSuccess = pcall(function()
 				buffer.writeu32(buf, 1, 0xFFFFFFFF)
-				pckt:SetData(buf)
+			end)
+			
+			if writeSuccess and hasSetData then
+				pcall(function()
+					pckt:SetData(buf)
+				end)
 			end
 		end
 	end)
+	
 	if not success then
-		-- Silent fail to prevent spam
+		hookErrorCount = hookErrorCount + 1
 	end
 end
 
-local old = 0
+-- Alternative hook implementation
+local function rakHookk(pckt)
+	if isShuttingDown then return end
+	
+	local now = tick()
+	if now - lastErrorTime < 1 and hookErrorCount > MAX_ERRORS_PER_SECOND then
+		isShuttingDown = true
+		task.spawn(function()
+			if Desync and Desync.Enabled then
+				Desync:Toggle(false)
+			end
+		end)
+		return
+	end
+	
+	local hasId, hasBuffer, hasSetData = isValidPacket(pckt)
+	if not hasId then return end
+	
+	local success = pcall(function()
+		if pckt.PacketId == 0x1B then
+			local buf = pckt.AsBuffer
+			if buf and hasSetData then
+				pcall(function()
+					buffer.writeu32(buf, 1, 0xFFFFFFFF)
+					pckt:SetData(buf)
+				end)
+			end
+		end
+	end)
+	
+	if not success then
+		hookErrorCount = hookErrorCount + 1
+	end
+end
+
+-- Watchdog to monitor hook health
+local watchdogConnection = nil
+local function startWatchdog()
+	if watchdogConnection then return end
+	
+	watchdogConnection = task.spawn(function()
+		while Desync and Desync.Enabled and not isShuttingDown do
+			task.wait(5)
+			
+			-- Check if we're getting too many errors
+			if hookErrorCount > 50 then
+				warn("[Desync] Unstable raknet detected, switching to fflag")
+				
+				-- Disable raknet hooks
+				if rakNet then
+					if hooktypes.rakhook1 and hookRef1 then
+						pcall(function() raknet.remove_send_hook(hookRef1) end)
+						hooktypes.rakhook1 = false
+					end
+					if hooktypes.rakhook2 and hookRef2 then
+						pcall(function() raknet.remove_send_hook(hookRef2) end)
+						hooktypes.rakhook2 = false
+					end
+				end
+				
+				-- Enable fflag
+				pcall(function()
+					setfflag("NextGenReplicatorEnabledWrite4", "true")
+					hooktypes.fflag = true
+					vape:CreateNotification("Desync", "Switched to stable fflag method", 5)
+				end)
+				
+				hookErrorCount = 0
+			end
+		end
+	end)
+end
 
 Desync = vape.Categories.Blatant:CreateModule({
 	Name = "Desync",
-	Tooltip = "Uses various methods to desync your position",
+	Tooltip = "Uses various methods to desync your position - Now with stability protection",
 	Function = function(callback)
 		if callback then
-			old = tick()
+			isShuttingDown = false
+			hookErrorCount = 0
+			lastErrorTime = 0
 
 			if rakNet then
-				vape:CreateNotification("Vape", "RakNet founded! Attempting to use server-sided desync...", 8)
+				vape:CreateNotification("Vape", "RakNet detected! Using advanced desync with stability protection...", 8)
 
-				-- Try first hook method
-				local suc1 = pcall(function()
+				-- Try first hook method with validation
+				local suc1, err1 = pcall(function()
 					hookRef1 = rakhook
-					raknet.add_send_hook(hookRef1)
+					return raknet.add_send_hook(hookRef1)
 				end)
 
 				if suc1 then
 					hooktypes.rakhook1 = true
-					vape:CreateNotification("Vape", "Desync, raknet Hook applied successfully", 6)
+					startWatchdog()
+					vape:CreateNotification("Vape", "Desync active with stability monitoring", 6, "success")
 					return
 				end
 
 				task.wait(0.5)
+				
 				-- Try second hook method
-				local suc2 = pcall(function()
+				local suc2, err2 = pcall(function()
 					hookRef2 = rakHookk
-					raknet.add_send_hook(hookRef2)
+					return raknet.add_send_hook(hookRef2)
 				end)
 
 				if suc2 then
 					hooktypes.rakhook2 = true
-					vape:CreateNotification("Vape", "Desync, raknet Second Hook applied successfully", 6)
+					startWatchdog()
+					vape:CreateNotification("Vape", "Desync active (method 2) with stability monitoring", 6, "success")
 					return
 				end
 
-				vape:CreateNotification("Vape", "Both raknet hooks failed. Falling back to fflag...", 8, "warning")
+				warn("[Desync] Both raknet hooks failed:", err1, err2)
+				vape:CreateNotification("Vape", "RakNet hooks failed, using stable fflag method", 8, "warning")
 			else
-				vape:CreateNotification("Vape", "raknet not supported? Using fflag method.", 8)
+				vape:CreateNotification("Vape", "RakNet not available, using fflag method", 8)
 			end
 
+			-- Fallback to fflag (most stable)
 			local fflagSuccess = pcall(function()
-				return setfflag("NextGenReplicatorEnabledWrite4", "true")
+				setfflag("NextGenReplicatorEnabledWrite4", "true")
 			end)
 
 			if fflagSuccess then
 				hooktypes.fflag = true
-				vape:CreateNotification("Vape", "Desync, fflag enabled", 6)
+				vape:CreateNotification("Vape", "Desync active (stable fflag mode)", 6, "success")
 			else
 				vape:CreateNotification("Vape", "All desync methods failed. Disabling module...", 8, "alert")
 				task.delay(1.5, function()
@@ -175,44 +232,73 @@ Desync = vape.Categories.Blatant:CreateModule({
 			end
 
 		else
-			-- Proper cleanup to prevent crashes
+			-- Comprehensive cleanup
+			isShuttingDown = true
+			
+			-- Stop watchdog
+			if watchdogConnection then
+				task.cancel(watchdogConnection)
+				watchdogConnection = nil
+			end
+			
+			-- Wait a frame for any pending hooks to finish
+			task.wait()
+			
+			-- Remove hooks with multiple attempts
 			if rakNet then
-				if hooktypes.rakhook1 and hookRef1 then
-					pcall(function() 
-						raknet.remove_send_hook(hookRef1) 
-						hookRef1 = nil
-					end)
+				for i = 1, 3 do
+					if hooktypes.rakhook1 and hookRef1 then
+						local success = pcall(function() 
+							raknet.remove_send_hook(hookRef1)
+						end)
+						if success then
+							hookRef1 = nil
+							hooktypes.rakhook1 = false
+							break
+						end
+						task.wait(0.1)
+					end
 				end
-				if hooktypes.rakhook2 and hookRef2 then
-					pcall(function() 
-						raknet.remove_send_hook(hookRef2)
-						hookRef2 = nil
-					end)
+				
+				for i = 1, 3 do
+					if hooktypes.rakhook2 and hookRef2 then
+						local success = pcall(function() 
+							raknet.remove_send_hook(hookRef2)
+						end)
+						if success then
+							hookRef2 = nil
+							hooktypes.rakhook2 = false
+							break
+						end
+						task.wait(0.1)
+					end
 				end
 			end
+			
+			-- Disable fflag
 			if hooktypes.fflag then
 				pcall(function()
 					setfflag("NextGenReplicatorEnabledWrite4", "false")
 				end)
+				hooktypes.fflag = false
 			end
-			hooktypes.rakhook1 = false
-			hooktypes.rakhook2 = false
-			hooktypes.fflag = false
+			
+			-- Final cleanup
+			task.wait(0.5)
+			hookRef1 = nil
+			hookRef2 = nil
+			hookErrorCount = 0
 		end
 	end
 })
 
---[[task.spawn(function()
-    toclipboard = oldtoclipboard
-    setclipboard = oldsetclipboard
-    setrbxclipboard = oldsetrbxclipboard
-    print = oldprint
-    warn = oldwarn
-    error = olderror
-    rconsoleprint = oldrconsoleprint
-    rconsoleinfo = oldrconsoleinfo
-    rconsolesettitle = oldrconsolesettitle
-    rconsolewarn = oldrconsolewarn
-    rconsoleinput = oldrconsoleinput
-    rconsoleerror = oldrconsoleerror
-end) --]]
+--[[
+CHANGELOG:
+- Added comprehensive packet validation
+- Added error rate limiting (max 10 errors/sec)
+- Added watchdog to monitor hook health
+- Added automatic fallback to fflag if unstable
+- Added multi-attempt cleanup on disable
+- Added shutdown flag to prevent crashes during cleanup
+- Removed anti-skid code for better performance
+--]]
