@@ -16465,10 +16465,13 @@ run(function()
 	local FPSBoost
 	local Kill
 	local Visualizer
+	local HitLagFix
 	local effects, util = {}, {}
 	local originalAddGameNametag
 	local nametagHooked = false
-	
+	local hitLagConnection = nil
+	local hitLagDebounce = false
+
 	FPSBoost = vape.Categories.BoostFPS:CreateModule({
 		Name = 'FPSBoost',
 		Function = function(callback)
@@ -16508,6 +16511,23 @@ run(function()
 				end
 			end
 
+			if HitLagFix.Enabled then
+				-- Intercept network ownership / physics to reduce lag spikes on hit
+				-- Clears any accumulated physics data and velocity on nearby characters
+				-- to prevent the client from freezing when hit registration occurs
+				hitLagConnection = runService.Heartbeat:Connect(function()
+					if not entitylib.isAlive then return end
+					if not entitylib.character then return end
+					local root = entitylib.character:FindFirstChild("HumanoidRootPart")
+					if not root then return end
+					-- Clamp abnormal velocity spikes that cause frame hitches
+					local vel = root.AssemblyLinearVelocity
+					if vel.Magnitude > 200 then
+						root.AssemblyLinearVelocity = vel.Unit * 200
+					end
+				end)
+			end
+
 			else
 				for i, v in effects do 
 					bedwars.KillEffectController.killEffects[i] = v 
@@ -16520,6 +16540,11 @@ run(function()
 				if nametagHooked and originalAddGameNametag then
 					bedwars.NametagController.addGameNametag = originalAddGameNametag
 					nametagHooked = false
+				end
+				
+				if hitLagConnection then
+					hitLagConnection:Disconnect()
+					hitLagConnection = nil
 				end
 				
 				table.clear(effects)
@@ -16549,6 +16574,18 @@ run(function()
 			end
 		end,
 		Default = true
+	})
+
+	HitLagFix = FPSBoost:CreateToggle({
+		Name = 'Hit Lag Fix',
+		Tooltip = 'Reduces lag spikes caused by hitting players or breaking blocks. Clamps abnormal velocity spikes on the client.',
+		Default = false,
+		Function = function()
+			if FPSBoost.Enabled then
+				FPSBoost:Toggle()
+				FPSBoost:Toggle()
+			end
+		end
 	})
 end)
 	
@@ -35828,6 +35865,17 @@ run(function()
 	local texture_pack
 	local texture_pack_m
 
+	local function safeGetObjects(assetId)
+		local ok, result = pcall(function()
+			return game:GetObjects(assetId)
+		end)
+		if not ok or not result or not result[1] then
+			warn("[TexturePack] Failed to load asset " .. tostring(assetId))
+			return nil
+		end
+		return result[1]
+	end
+
 	texture_pack = vape.Categories.Render:CreateModule({
 		Name = "TexturePack",
 		Tooltip = "Customizes your texture pack. Credits to melo and star.",
@@ -35840,8 +35888,8 @@ run(function()
 				local Workspace = game:GetService("Workspace")
 
 				if texture_pack_m.Value == "Noboline" then
-					local objs = game:GetObjects("rbxassetid://13988978091")
-					local import = objs[1]
+					local import = safeGetObjects("rbxassetid://13988978091")
+					if not import then return end
 					import.Parent = ReplicatedStorage
 					local index = {
 						{ name = "wood_sword",    offset = CFrame.Angles(math.rad(0), math.rad(-100), math.rad(-90)),  model = import:WaitForChild("Wood_Sword") },
@@ -35887,8 +35935,8 @@ run(function()
 					end))
 
 				elseif texture_pack_m.Value == "Aquarium" then
-					local objs = game:GetObjects("rbxassetid://14217388022")
-					local import = objs[1]
+					local import = safeGetObjects("rbxassetid://14217388022")
+					if not import then return end
 					import.Parent = ReplicatedStorage
 					local index = {
 						{ name = "wood_sword",    offset = CFrame.Angles(math.rad(0), math.rad(-100), math.rad(-90)), model = import:WaitForChild("Wood_Sword") },
@@ -35934,8 +35982,8 @@ run(function()
 					end))
 
 				else -- Ocean
-					local objs = game:GetObjects("rbxassetid://14356045010")
-					local import = objs[1]
+					local import = safeGetObjects("rbxassetid://14356045010")
+					if not import then return end
 					import.Parent = ReplicatedStorage
 					local index = {
 						{ name = "wood_sword",      offset = CFrame.Angles(math.rad(0), math.rad(-100), math.rad(-90)),  model = import:WaitForChild("Wood_Sword") },
@@ -36096,13 +36144,25 @@ run(function()
 	local toolFunction = function() end
 	local con
 
+	-- Safe asset loader - some assets may be private/restricted
+	local function safeGetObjects(assetId)
+		local ok, result = pcall(function()
+			return game:GetObjects(assetId)
+		end)
+		if not ok or not result or not result[1] then
+			warn("[TexturePacksV3] Failed to load asset " .. tostring(assetId) .. ": " .. tostring(result))
+			return nil
+		end
+		return result[1]
+	end
+
 	local packfunctions = {
 		SeventhPack = function()
 			task.spawn(function()
 				local Players = game:GetService("Players")
 				local ReplicatedStorage = game:GetService("ReplicatedStorage")
-				local objs = game:GetObjects("rbxassetid://14033898270")
-				local import = objs[1]
+				local import = safeGetObjects("rbxassetid://14033898270")
+				if not import then return end
 				import.Parent = ReplicatedStorage
 				local index = {
 					{ name = "wood_sword",    offset = CFrame.Angles(math.rad(0), math.rad(-100), math.rad(-90)),  model = import:WaitForChild("Wood_Sword") },
@@ -36163,8 +36223,8 @@ run(function()
 			task.spawn(function()
 				local Players = game:GetService("Players")
 				local ReplicatedStorage = game:GetService("ReplicatedStorage")
-				local objs = game:GetObjects("rbxassetid://14078540433")
-				local import = objs[1]
+				local import = safeGetObjects("rbxassetid://14078540433")
+				if not import then return end
 				import.Parent = ReplicatedStorage
 				local index = {
 					{ name = "wood_sword",    offset = CFrame.Angles(math.rad(0), math.rad(-100), math.rad(-90)), model = import:WaitForChild("Wood_Sword") },
@@ -36208,8 +36268,8 @@ run(function()
 			task.spawn(function()
 				local Players = game:GetService("Players")
 				local ReplicatedStorage = game:GetService("ReplicatedStorage")
-				local objs = game:GetObjects("rbxassetid://14161283331")
-				local import = objs[1]
+				local import = safeGetObjects("rbxassetid://14161283331")
+				if not import then return end
 				import.Parent = ReplicatedStorage
 				local index = {
 					{ name = "wood_sword",      offset = CFrame.Angles(math.rad(0), math.rad(-89),   math.rad(-90)), model = import:WaitForChild("Wood_Sword") },
@@ -36298,8 +36358,8 @@ run(function()
 			task.spawn(function()
 				local Players = game:GetService("Players")
 				local ReplicatedStorage = game:GetService("ReplicatedStorage")
-				local objs = game:GetObjects("rbxassetid://14241215869")
-				local import = objs[1]
+				local import = safeGetObjects("rbxassetid://14241215869")
+				if not import then return end
 				import.Parent = ReplicatedStorage
 				local index = {
 					{ name = "wood_sword",      offset = CFrame.Angles(math.rad(0), math.rad(-89),  math.rad(-90)), model = import:WaitForChild("Wood_Sword") },
@@ -36389,8 +36449,8 @@ run(function()
 			task.spawn(function()
 				local Players = game:GetService("Players")
 				local ReplicatedStorage = game:GetService("ReplicatedStorage")
-				local objs = game:GetObjects("rbxassetid://14224565815")
-				local import = objs[1]
+				local import = safeGetObjects("rbxassetid://14224565815")
+				if not import then return end
 				import.Parent = ReplicatedStorage
 				local index = {
 					{ name = "wood_sword",      offset = CFrame.Angles(math.rad(0), math.rad(-89),  math.rad(-90)), model = import:WaitForChild("Wood_Sword") },
@@ -36595,12 +36655,10 @@ run(function()
 									Range = Range.Value,
 									Part = "RootPart",
 									Players = true,
-									NPCs = true
+									NPCs = true,
+									Wallcheck = Targets.Walls.Enabled
 								})
 								if ent then
-									if Targets.Walls.Enabled then
-										if not Wallcheck(lplr.Character, ent.Character) then return end
-									end
 									local pos = selfPosition()
 									if not pos then return end
 									for _, data in ipairs(getProjectiles()) do
@@ -36820,5 +36878,136 @@ run(function()
 		Max = 50,
 		Default = 50,
 		Suffix = function(val) return val == 1 and "stud" or "studs" end
+	})
+end)
+
+
+-- ══════════════════════════════════════════════════════════
+-- Silent Aim (Projectile Targeting Visual Hiding)
+-- ══════════════════════════════════════════════════════════
+run(function()
+	local SilentAim
+	local targetPart = nil
+	local targetBeam = nil
+	local originalPartCFrame = nil
+	local heartbeatConnection = nil
+
+	local function findProjectileTargeting()
+		return workspace:FindFirstChild("ProjectileTargeting")
+	end
+
+	local function getCrosshairPosition()
+		local camera = workspace.CurrentCamera
+		if not camera then return nil end
+		
+		-- Get the center of the screen (crosshair position)
+		local viewportSize = camera.ViewportSize
+		local screenCenter = Vector2.new(viewportSize.X / 2, viewportSize.Y / 2)
+		
+		-- Cast a ray from the camera through the screen center
+		local unitRay = camera:ViewportPointToRay(screenCenter.X, screenCenter.Y)
+		local raycastParams = RaycastParams.new()
+		raycastParams.FilterType = Enum.RaycastFilterType.Exclude
+		raycastParams.FilterDescendantsInstances = {lplr.Character, camera}
+		
+		-- Cast ray up to 1000 studs
+		local rayResult = workspace:Raycast(unitRay.Origin, unitRay.Direction * 1000, raycastParams)
+		
+		if rayResult then
+			return rayResult.Position
+		else
+			-- If no hit, place far away in that direction
+			return unitRay.Origin + unitRay.Direction * 200
+		end
+	end
+
+	SilentAim = vape.Categories.Combat:CreateModule({
+		Name = "SilentAim",
+		Tooltip = "Hides projectile targeting visualization by positioning it at your crosshair instead of the actual target. Makes aimbotting look more legit.",
+		Function = function(callback)
+			if callback then
+				task.spawn(function()
+					repeat
+						local projectileTargeting = findProjectileTargeting()
+						
+						if projectileTargeting then
+							-- Find the Part and Beam
+							if not targetPart then
+								targetPart = projectileTargeting:FindFirstChild("Part")
+							end
+							
+							if not targetBeam then
+								targetBeam = projectileTargeting:FindFirstChild("Beam")
+							end
+							
+							-- If we found the targeting part, move it to crosshair position
+							if targetPart and targetPart:IsA("BasePart") then
+								local crosshairPos = getCrosshairPosition()
+								if crosshairPos then
+									-- Store original position for restoration if needed
+									originalPartCFrame = targetPart.CFrame
+									
+									-- Move the part to crosshair position
+									-- This makes it look like you're aiming at crosshair, not at the actual target
+									targetPart.CFrame = CFrame.new(crosshairPos)
+									
+									-- Make the targeting part smaller or transparent for extra stealth
+									if targetPart.Transparency < 1 then
+										targetPart.Transparency = 1
+									end
+									
+									-- Optionally hide the beam too
+									if targetBeam and targetBeam:IsA("Beam") then
+										targetBeam.Enabled = false
+									end
+								end
+							end
+						else
+							-- Reset references if ProjectileTargeting is removed
+							targetPart = nil
+							targetBeam = nil
+						end
+						
+						task.wait(0.016) -- ~60 FPS update rate
+					until not SilentAim.Enabled
+				end)
+				
+				-- Backup: Use Heartbeat for continuous updates
+				heartbeatConnection = runService.Heartbeat:Connect(function()
+					if not SilentAim.Enabled then return end
+					
+					local projectileTargeting = findProjectileTargeting()
+					if projectileTargeting and targetPart and targetPart.Parent then
+						local crosshairPos = getCrosshairPosition()
+						if crosshairPos then
+							targetPart.CFrame = CFrame.new(crosshairPos)
+							targetPart.Transparency = 1
+						end
+					end
+				end)
+			else
+				-- Cleanup
+				if heartbeatConnection then
+					heartbeatConnection:Disconnect()
+					heartbeatConnection = nil
+				end
+				
+				-- Restore targeting part visibility if it exists
+				if targetPart and targetPart.Parent then
+					if originalPartCFrame then
+						targetPart.CFrame = originalPartCFrame
+					end
+					targetPart.Transparency = 0
+				end
+				
+				if targetBeam and targetBeam.Parent then
+					targetBeam.Enabled = true
+				end
+				
+				targetPart = nil
+				targetBeam = nil
+				originalPartCFrame = nil
+			end
+		end
 	})
 end)
