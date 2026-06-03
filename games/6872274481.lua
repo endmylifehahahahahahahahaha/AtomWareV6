@@ -36887,46 +36887,42 @@ end)
 -- ══════════════════════════════════════════════════════════
 -- Silent Aim (Projectile Targeting Visual Spoof)
 -- ══════════════════════════════════════════════════════════
+-- The aimbot sets workspace.ProjectileTargeting.Part.CFrame every frame.
+-- Silent Aim overrides it VISUALLY at the end of every frame (RenderStepped)
+-- so it always renders at the mouse position, not the actual target.
+-- The aimbot still functions normally server-side; this is purely visual.
+-- ══════════════════════════════════════════════════════════
 run(function()
 	local SilentAim
-	local heartbeatConnection = nil
+	local renderConnection = nil
+	local mouse = lplr:GetMouse()
 
-	-- Returns the world position under the mouse cursor
-	local function getMouseWorldPosition()
-		local camera = workspace.CurrentCamera
-		if not camera then return nil end
-		local mouse = game:GetService("Players").LocalPlayer:GetMouse()
-		local unitRay = camera:ViewportPointToRay(mouse.X, mouse.Y)
-		local raycastParams = RaycastParams.new()
-		raycastParams.FilterType = Enum.RaycastFilterType.Exclude
-		raycastParams.FilterDescendantsInstances = {lplr.Character}
-		local result = workspace:Raycast(unitRay.Origin, unitRay.Direction * 1000, raycastParams)
-		if result then
-			return result.Position
-		end
-		return unitRay.Origin + unitRay.Direction * 200
+	-- Gets the world position the mouse is currently pointing at.
+	-- Uses Mouse.Hit which Roblox already computes for us every frame.
+	local function getMousePos()
+		return mouse.Hit.Position
 	end
 
 	SilentAim = vape.Categories.Combat:CreateModule({
 		Name = "SilentAim",
-		Tooltip = "Visually moves the projectile targeting part to your mouse position so it looks like you are not aimbotting.",
+		Tooltip = "Visually positions the projectile targeting indicator at your mouse cursor instead of the actual aimbot target, hiding the fact that you are aimbotting.",
 		Function = function(callback)
 			if callback then
-				heartbeatConnection = runService.Heartbeat:Connect(function()
+				-- RenderStepped fires right before the frame is drawn.
+				-- Because it runs after Heartbeat (where the aimbot writes CFrame),
+				-- our write is the LAST one before rendering — so visually it wins.
+				renderConnection = runService.RenderStepped:Connect(function()
 					local pt = workspace:FindFirstChild("ProjectileTargeting")
 					if not pt then return end
 					local part = pt:FindFirstChild("Part")
 					if not part then return end
-					local mousePos = getMouseWorldPosition()
-					if mousePos then
-						-- Only spoof the CFrame visually; leave all other properties untouched
-						part.CFrame = CFrame.new(mousePos)
-					end
+					-- Overwrite CFrame to mouse position. Rotation doesn't matter for this part.
+					part.CFrame = CFrame.new(getMousePos())
 				end)
 			else
-				if heartbeatConnection then
-					heartbeatConnection:Disconnect()
-					heartbeatConnection = nil
+				if renderConnection then
+					renderConnection:Disconnect()
+					renderConnection = nil
 				end
 			end
 		end
