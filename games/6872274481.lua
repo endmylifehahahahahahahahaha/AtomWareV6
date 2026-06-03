@@ -36916,8 +36916,17 @@ run(function()
 					if not pt then return end
 					local part = pt:FindFirstChild("Part")
 					if not part then return end
-					-- Overwrite CFrame to mouse position. Rotation doesn't matter for this part.
-					part.CFrame = CFrame.new(getMousePos())
+
+					local mousePos = getMousePos()
+					local char = lplr.Character
+					local hrp = char and char:FindFirstChild("HumanoidRootPart")
+					if hrp then
+						-- Orient the part so it faces FROM the player TOWARD the mouse,
+						-- matching how the aimbot normally positions it.
+						part.CFrame = CFrame.lookAt(mousePos, hrp.Position)
+					else
+						part.CFrame = CFrame.new(mousePos)
+					end
 				end)
 			else
 				if renderConnection then
