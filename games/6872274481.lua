@@ -6964,6 +6964,8 @@ run(function()
             if callback then
                 old = modifier.addModifier
                 modifier.addModifier = function(self, tab)
+                    if not old then return end -- guard: module was disabled and old was cleared
+
                     if SophiaCheck and SophiaCheck.Enabled and isFrozen(nil, FROZEN_THRESHOLD) then
                         return old(self, tab)
                     end
@@ -36883,130 +36885,49 @@ end)
 
 
 -- ══════════════════════════════════════════════════════════
--- Silent Aim (Projectile Targeting Visual Hiding)
+-- Silent Aim (Projectile Targeting Visual Spoof)
 -- ══════════════════════════════════════════════════════════
 run(function()
 	local SilentAim
-	local targetPart = nil
-	local targetBeam = nil
-	local originalPartCFrame = nil
 	local heartbeatConnection = nil
 
-	local function findProjectileTargeting()
-		return workspace:FindFirstChild("ProjectileTargeting")
-	end
-
-	local function getCrosshairPosition()
+	-- Returns the world position under the mouse cursor
+	local function getMouseWorldPosition()
 		local camera = workspace.CurrentCamera
 		if not camera then return nil end
-		
-		-- Get the center of the screen (crosshair position)
-		local viewportSize = camera.ViewportSize
-		local screenCenter = Vector2.new(viewportSize.X / 2, viewportSize.Y / 2)
-		
-		-- Cast a ray from the camera through the screen center
-		local unitRay = camera:ViewportPointToRay(screenCenter.X, screenCenter.Y)
+		local mouse = game:GetService("Players").LocalPlayer:GetMouse()
+		local unitRay = camera:ViewportPointToRay(mouse.X, mouse.Y)
 		local raycastParams = RaycastParams.new()
 		raycastParams.FilterType = Enum.RaycastFilterType.Exclude
-		raycastParams.FilterDescendantsInstances = {lplr.Character, camera}
-		
-		-- Cast ray up to 1000 studs
-		local rayResult = workspace:Raycast(unitRay.Origin, unitRay.Direction * 1000, raycastParams)
-		
-		if rayResult then
-			return rayResult.Position
-		else
-			-- If no hit, place far away in that direction
-			return unitRay.Origin + unitRay.Direction * 200
+		raycastParams.FilterDescendantsInstances = {lplr.Character}
+		local result = workspace:Raycast(unitRay.Origin, unitRay.Direction * 1000, raycastParams)
+		if result then
+			return result.Position
 		end
+		return unitRay.Origin + unitRay.Direction * 200
 	end
 
 	SilentAim = vape.Categories.Combat:CreateModule({
 		Name = "SilentAim",
-		Tooltip = "Hides projectile targeting visualization by positioning it at your crosshair instead of the actual target. Makes aimbotting look more legit.",
+		Tooltip = "Visually moves the projectile targeting part to your mouse position so it looks like you are not aimbotting.",
 		Function = function(callback)
 			if callback then
-				task.spawn(function()
-					repeat
-						local projectileTargeting = findProjectileTargeting()
-						
-						if projectileTargeting then
-							-- Find the Part and Beam
-							if not targetPart then
-								targetPart = projectileTargeting:FindFirstChild("Part")
-							end
-							
-							if not targetBeam then
-								targetBeam = projectileTargeting:FindFirstChild("Beam")
-							end
-							
-							-- If we found the targeting part, move it to crosshair position
-							if targetPart and targetPart:IsA("BasePart") then
-								local crosshairPos = getCrosshairPosition()
-								if crosshairPos then
-									-- Store original position for restoration if needed
-									originalPartCFrame = targetPart.CFrame
-									
-									-- Move the part to crosshair position
-									-- This makes it look like you're aiming at crosshair, not at the actual target
-									targetPart.CFrame = CFrame.new(crosshairPos)
-									
-									-- Make the targeting part smaller or transparent for extra stealth
-									if targetPart.Transparency < 1 then
-										targetPart.Transparency = 1
-									end
-									
-									-- Optionally hide the beam too
-									if targetBeam and targetBeam:IsA("Beam") then
-										targetBeam.Enabled = false
-									end
-								end
-							end
-						else
-							-- Reset references if ProjectileTargeting is removed
-							targetPart = nil
-							targetBeam = nil
-						end
-						
-						task.wait(0.016) -- ~60 FPS update rate
-					until not SilentAim.Enabled
-				end)
-				
-				-- Backup: Use Heartbeat for continuous updates
 				heartbeatConnection = runService.Heartbeat:Connect(function()
-					if not SilentAim.Enabled then return end
-					
-					local projectileTargeting = findProjectileTargeting()
-					if projectileTargeting and targetPart and targetPart.Parent then
-						local crosshairPos = getCrosshairPosition()
-						if crosshairPos then
-							targetPart.CFrame = CFrame.new(crosshairPos)
-							targetPart.Transparency = 1
-						end
+					local pt = workspace:FindFirstChild("ProjectileTargeting")
+					if not pt then return end
+					local part = pt:FindFirstChild("Part")
+					if not part then return end
+					local mousePos = getMouseWorldPosition()
+					if mousePos then
+						-- Only spoof the CFrame visually; leave all other properties untouched
+						part.CFrame = CFrame.new(mousePos)
 					end
 				end)
 			else
-				-- Cleanup
 				if heartbeatConnection then
 					heartbeatConnection:Disconnect()
 					heartbeatConnection = nil
 				end
-				
-				-- Restore targeting part visibility if it exists
-				if targetPart and targetPart.Parent then
-					if originalPartCFrame then
-						targetPart.CFrame = originalPartCFrame
-					end
-					targetPart.Transparency = 0
-				end
-				
-				if targetBeam and targetBeam.Parent then
-					targetBeam.Enabled = true
-				end
-				
-				targetPart = nil
-				targetBeam = nil
-				originalPartCFrame = nil
 			end
 		end
 	})
