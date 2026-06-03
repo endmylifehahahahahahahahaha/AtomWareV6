@@ -36895,12 +36895,28 @@ end)
 run(function()
 	local SilentAim
 	local renderConnection = nil
-	local mouse = lplr:GetMouse()
+	local camera = workspace.CurrentCamera
 
-	-- Gets the world position the mouse is currently pointing at.
-	-- Uses Mouse.Hit which Roblox already computes for us every frame.
-	local function getMousePos()
-		return mouse.Hit.Position
+	-- Raycast from camera through the mouse screen position,
+	-- ignoring the local character and the ProjectileTargeting folder
+	-- so we get the true world position the player is looking at.
+	local function getMouseWorldPos()
+		local mouse = lplr:GetMouse()
+		local unitRay = camera:ViewportPointToRay(mouse.X, mouse.Y)
+
+		local params = RaycastParams.new()
+		params.FilterType = Enum.RaycastFilterType.Exclude
+		local exclude = {lplr.Character}
+		local pt = workspace:FindFirstChild("ProjectileTargeting")
+		if pt then table.insert(exclude, pt) end
+		params.FilterDescendantsInstances = exclude
+
+		local result = workspace:Raycast(unitRay.Origin, unitRay.Direction * 2000, params)
+		if result then
+			return result.Position
+		end
+		-- Nothing hit — place it far along the ray so the beam still looks natural
+		return unitRay.Origin + unitRay.Direction * 500
 	end
 
 	SilentAim = vape.Categories.Combat:CreateModule({
@@ -36916,17 +36932,8 @@ run(function()
 					if not pt then return end
 					local part = pt:FindFirstChild("Part")
 					if not part then return end
-
-					local mousePos = getMousePos()
-					local char = lplr.Character
-					local hrp = char and char:FindFirstChild("HumanoidRootPart")
-					if hrp then
-						-- Orient the part so it faces FROM the player TOWARD the mouse,
-						-- matching how the aimbot normally positions it.
-						part.CFrame = CFrame.lookAt(mousePos, hrp.Position)
-					else
-						part.CFrame = CFrame.new(mousePos)
-					end
+					-- Place the part at the true mouse world position, no rotation needed
+					part.CFrame = CFrame.new(getMouseWorldPos())
 				end)
 			else
 				if renderConnection then
