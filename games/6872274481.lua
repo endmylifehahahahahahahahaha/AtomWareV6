@@ -2842,7 +2842,8 @@ run(function()
                     end
 
                     local currentCPS = getSafeCPS()
-                    task_wait(1 / (currentCPS and currentCPS.GetRandomValue() or 7))
+                    local cpsVal = currentCPS and currentCPS.GetRandomValue and currentCPS.GetRandomValue()
+                    task_wait(1 / (cpsVal and cpsVal > 0 and cpsVal or 7))
                 until not AutoClicker.Enabled
             end)
         end
@@ -6663,7 +6664,7 @@ run(function()
 								AttackRemote:FireServer({
 									weapon = sword.tool,
 									chargedAttack = {chargeRatio = 0},
-									lastSwingServerTimeDelta = math.clamp(lastSwingServerTimeDelta, 0.2, 0.8),
+									lastSwingServerTimeDelta = math.clamp(lastSwingServerTimeDelta or 0.4, 0.2, 0.8),
 									entityInstance = v.Character,
 									validate = {
 										raycast = {
@@ -16514,15 +16515,13 @@ run(function()
 			end
 
 			if HitLagFix.Enabled then
-				-- Intercept network ownership / physics to reduce lag spikes on hit
-				-- Clears any accumulated physics data and velocity on nearby characters
-				-- to prevent the client from freezing when hit registration occurs
+				-- Clamp abnormal velocity spikes that cause frame hitches on hit/mine
 				hitLagConnection = runService.Heartbeat:Connect(function()
 					if not entitylib.isAlive then return end
-					if not entitylib.character then return end
-					local root = entitylib.character:FindFirstChild("HumanoidRootPart")
+					local char = entitylib.character and entitylib.character.Character
+					if not char then return end
+					local root = char:FindFirstChild("HumanoidRootPart")
 					if not root then return end
-					-- Clamp abnormal velocity spikes that cause frame hitches
 					local vel = root.AssemblyLinearVelocity
 					if vel.Magnitude > 200 then
 						root.AssemblyLinearVelocity = vel.Unit * 200
@@ -36655,23 +36654,23 @@ run(function()
 		Function = function(callback)
 			if callback then
 				task.spawn(function()
+					local mapFilter = { workspace.Map } -- pre-allocated, reused every iteration
+					rayCheck.FilterDescendantsInstances = mapFilter
 					repeat
 						if (workspace:GetServerTimeNow() - bedwars.SwordController.lastAttack) > 0.5 then
-							task.spawn(function()
-								local ent = entitylib.EntityPosition({
-									Range = Range.Value,
-									Part = "RootPart",
-									Players = true,
-									NPCs = true,
-									Wallcheck = Targets.Walls.Enabled
-								})
-								if ent then
-									local pos = selfPosition()
-									if not pos then return end
+							local ent = entitylib.EntityPosition({
+								Range = Range.Value,
+								Part = "RootPart",
+								Players = true,
+								NPCs = true,
+								Wallcheck = Targets.Walls.Enabled
+							})
+							if ent then
+								local pos = selfPosition()
+								if pos then
 									for _, data in ipairs(getProjectiles()) do
 										local item, ammo, projectile, itemMeta = unpack(data)
 										if (FireDelays[item.itemType] or 0) < tick() then
-											rayCheck.FilterDescendantsInstances = { workspace.Map }
 											local ok, meta = pcall(function() return bedwars.ProjectileMeta[projectile] end)
 											if not ok or not meta then continue end
 											local projSpeed = meta.launchVelocity
@@ -36700,7 +36699,7 @@ run(function()
 										end
 									end
 								end
-							end)
+							end
 						end
 						task.wait(0.1)
 					until not ProjectileAura.Enabled
@@ -36753,7 +36752,14 @@ run(function()
 		return nil
 	end
 
+	-- Cache projectile list and only rebuild every 0.5s to avoid scanning inventory every 12ms
+	local _projCacheV2 = {}
+	local _projCacheTimeV2 = 0
 	local function getProjectilesV2()
+		local now = tick()
+		if now - _projCacheTimeV2 < 0.5 and #_projCacheV2 > 0 then
+			return _projCacheV2
+		end
 		local items = {}
 		local inv = (store.localInventory and store.localInventory.inventory.items) or store.inventory.inventory.items
 		for _, item in inv do
@@ -36765,6 +36771,8 @@ run(function()
 				table.insert(items, { item, ammo, proj.projectileType(ammo), proj })
 			end
 		end
+		_projCacheV2 = items
+		_projCacheTimeV2 = now
 		return items
 	end
 
@@ -36774,6 +36782,9 @@ run(function()
 		Function = function(callback)
 			if callback then
 				task.spawn(function()
+					local mapFilterV2 = { workspace.Map } -- pre-allocated, reused every iteration
+					rayCheck.FilterDescendantsInstances = mapFilterV2
+					_projCacheTimeV2 = 0 -- force rebuild on enable
 					repeat
 						if (workspace:GetServerTimeNow() - bedwars.SwordController.lastAttack) > 0.5 then
 							local sortFn = Sort and sortmethods and sortmethods[Sort.Value] or nil
@@ -36791,7 +36802,6 @@ run(function()
 								for _, data in ipairs(getProjectilesV2()) do
 									local item, ammo, projectile, itemMeta = unpack(data)
 									if (FireDelays[item.itemType] or 0) < tick() then
-										rayCheck.FilterDescendantsInstances = { workspace.Map }
 										local ok, meta = pcall(function() return bedwars.ProjectileMeta[projectile] end)
 										if not ok or not meta then continue end
 										local projSpeed = meta.launchVelocity
