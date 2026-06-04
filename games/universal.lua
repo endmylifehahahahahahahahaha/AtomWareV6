@@ -274,6 +274,51 @@ vape.Libraries.auraanims = {
 		{CFrame = CFrame.new(0.7, -0.71, 0.59) * CFrame.Angles(math.rad(-84), math.rad(50), math.rad(-38)), Time = 0.05},
 		{CFrame = CFrame.new(0.63, -0.1, 1.37) * CFrame.Angles(math.rad(-84), math.rad(50), math.rad(-38)), Time = 0.15}
 	},
+	-- Fast snap up then slam down
+	Snap = {
+		{CFrame = CFrame.new(0.69, -0.4, 0.3) * CFrame.Angles(math.rad(-50), math.rad(55), math.rad(-70)), Time = 0.04},
+		{CFrame = CFrame.new(0.69, -0.71, 0.6) * CFrame.Angles(math.rad(200), math.rad(60), math.rad(1)), Time = 0.04}
+	},
+	-- Wide horizontal sweep left to right
+	Sweep = {
+		{CFrame = CFrame.new(-0.3, -0.7, 0.6) * CFrame.Angles(math.rad(270), math.rad(-30), math.rad(260)), Time = 0.08},
+		{CFrame = CFrame.new(0.69, -0.71, 0.6) * CFrame.Angles(math.rad(270), math.rad(60), math.rad(290)), Time = 0.08},
+		{CFrame = CFrame.new(1.1, -0.71, 0.6) * CFrame.Angles(math.rad(270), math.rad(100), math.rad(310)), Time = 0.08}
+	},
+	-- Raise high then bring down hard
+	Overhead = {
+		{CFrame = CFrame.new(0.5, 0.3, 0.4) * CFrame.Angles(math.rad(-120), math.rad(50), math.rad(-60)), Time = 0.1},
+		{CFrame = CFrame.new(0.5, -0.9, 0.7) * CFrame.Angles(math.rad(60), math.rad(50), math.rad(-60)), Time = 0.08}
+	},
+	-- Quick jab forward
+	Jab = {
+		{CFrame = CFrame.new(0.69, -0.71, 1.1) * CFrame.Angles(math.rad(0), math.rad(0), math.rad(-90)), Time = 0.05},
+		{CFrame = CFrame.new(0.69, -0.71, 0.6) * CFrame.Angles(math.rad(200), math.rad(60), math.rad(1)), Time = 0.05}
+	},
+	-- Spin horizontally like a propeller
+	['Horizontal Spin'] = {
+		{CFrame = CFrame.new(0, 0, 0) * CFrame.Angles(math.rad(0), math.rad(0), math.rad(0)), Time = 0.08},
+		{CFrame = CFrame.new(0, 0, 0) * CFrame.Angles(math.rad(0), math.rad(90), math.rad(0)), Time = 0.08},
+		{CFrame = CFrame.new(0, 0, 0) * CFrame.Angles(math.rad(0), math.rad(180), math.rad(0)), Time = 0.08},
+		{CFrame = CFrame.new(0, 0, 0) * CFrame.Angles(math.rad(0), math.rad(270), math.rad(0)), Time = 0.08}
+	},
+	-- Diagonal slash top-left to bottom-right
+	Diagonal = {
+		{CFrame = CFrame.new(0.2, 0.1, 0.5) * CFrame.Angles(math.rad(-60), math.rad(80), math.rad(-110)), Time = 0.07},
+		{CFrame = CFrame.new(0.9, -0.9, 0.7) * CFrame.Angles(math.rad(150), math.rad(30), math.rad(20)), Time = 0.07}
+	},
+	-- Two fast hits in one swing cycle
+	Double = {
+		{CFrame = CFrame.new(0.69, -0.7, 0.6) * CFrame.Angles(math.rad(295), math.rad(55), math.rad(290)), Time = 0.04},
+		{CFrame = CFrame.new(0.69, -0.71, 0.6) * CFrame.Angles(math.rad(200), math.rad(60), math.rad(1)), Time = 0.03},
+		{CFrame = CFrame.new(0.69, -0.7, 0.6) * CFrame.Angles(math.rad(295), math.rad(55), math.rad(290)), Time = 0.04},
+		{CFrame = CFrame.new(0.69, -0.71, 0.6) * CFrame.Angles(math.rad(200), math.rad(60), math.rad(1)), Time = 0.03}
+	},
+	-- Smooth backhand swing
+	Backhand = {
+		{CFrame = CFrame.new(0.69, -0.7, 0.6) * CFrame.Angles(math.rad(295), math.rad(-30), math.rad(250)), Time = 0.09},
+		{CFrame = CFrame.new(0.69, -0.71, 0.6) * CFrame.Angles(math.rad(200), math.rad(-20), math.rad(20)), Time = 0.09}
+	},
 	Random = {},
 }
 

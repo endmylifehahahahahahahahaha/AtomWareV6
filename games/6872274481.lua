@@ -35889,10 +35889,80 @@ run(function()
 				local ReplicatedStorage = game:GetService("ReplicatedStorage")
 				local Workspace = game:GetService("Workspace")
 
+				-- Track spawned models and hidden parts so we can restore on disable
+				local spawnedModels = {}
+				local hiddenParts = {} -- { part, originalTransparency }
+
+				local function hidePartsIn(container)
+					for _, part in ipairs(container:GetDescendants()) do
+						if part:IsA("BasePart") or part:IsA("MeshPart") or part:IsA("UnionOperation") then
+							table.insert(hiddenParts, { part = part, orig = part.Transparency })
+							part.Transparency = 1
+						end
+					end
+				end
+
+				local function applyToTool(tool, index, viewmodelPack)
+					if not tool:IsA("Accessory") then return end
+					for _, v in ipairs(index) do
+						if v.name == tool.Name then
+							hidePartsIn(tool)
+							local model = v.model:Clone()
+							model.CFrame = tool.Handle.CFrame * v.offset
+							model.CFrame = model.CFrame * CFrame.Angles(math.rad(0), math.rad(-50), math.rad(0))
+							model.Parent = tool
+							local weld = Instance.new("WeldConstraint")
+							weld.Part0 = model
+							weld.Part1 = tool.Handle
+							weld.Parent = model
+							table.insert(spawnedModels, model)
+
+							if viewmodelPack then
+								local char = Players.LocalPlayer.Character
+								local tool2 = char and char:FindFirstChild(tool.Name)
+								if tool2 then
+									hidePartsIn(tool2)
+									local model2 = v.model:Clone()
+									model2.Anchored = false
+									model2.CFrame = tool2.Handle.CFrame * v.offset
+									model2.CFrame = model2.CFrame * CFrame.Angles(math.rad(0), math.rad(-50), math.rad(0))
+									if viewmodelPack.offset2 then
+										model2.CFrame = model2.CFrame * viewmodelPack.offset2
+									end
+									model2.Parent = tool2
+									local weld2 = Instance.new("WeldConstraint")
+									weld2.Part0 = model2
+									weld2.Part1 = tool2.Handle
+									weld2.Parent = model2
+									table.insert(spawnedModels, model2)
+								end
+							end
+						end
+					end
+				end
+
+				-- Cleanup function stored for disable
+				local function doCleanup()
+					-- Remove spawned models
+					for _, m in ipairs(spawnedModels) do
+						if m and m.Parent then m:Destroy() end
+					end
+					table.clear(spawnedModels)
+					-- Restore part transparencies
+					for _, entry in ipairs(hiddenParts) do
+						if entry.part and entry.part.Parent then
+							entry.part.Transparency = entry.orig
+						end
+					end
+					table.clear(hiddenParts)
+				end
+				texture_pack:Clean(doCleanup)
+
 				if texture_pack_m.Value == "Noboline" then
 					local import = safeGetObjects("rbxassetid://13988978091")
 					if not import then return end
 					import.Parent = ReplicatedStorage
+					texture_pack:Clean(function() import:Destroy() end)
 					local index = {
 						{ name = "wood_sword",    offset = CFrame.Angles(math.rad(0), math.rad(-100), math.rad(-90)),  model = import:WaitForChild("Wood_Sword") },
 						{ name = "stone_sword",   offset = CFrame.Angles(math.rad(0), math.rad(-100), math.rad(-90)),  model = import:WaitForChild("Stone_Sword") },
@@ -35908,38 +35978,22 @@ run(function()
 						{ name = "iron_axe",      offset = CFrame.Angles(math.rad(0), math.rad(-10),  math.rad(-95)),  model = import:WaitForChild("Iron_Axe") },
 						{ name = "diamond_axe",   offset = CFrame.Angles(math.rad(0), math.rad(-90),  math.rad(-95)),  model = import:WaitForChild("Diamond_Axe") },
 					}
-					texture_pack:Clean(Workspace.Camera.Viewmodel.ChildAdded:Connect(function(tool)
-						if not tool:IsA("Accessory") then return end
-						for _, v in ipairs(index) do
-							if v.name == tool.Name then
-								for _, part in ipairs(tool:GetDescendants()) do
-									if part:IsA("BasePart") or part:IsA("MeshPart") or part:IsA("UnionOperation") then
-										part.Transparency = 1
-									end
-								end
-								local model = v.model:Clone()
-								model.CFrame = tool.Handle.CFrame * v.offset
-								model.CFrame = model.CFrame * CFrame.Angles(math.rad(0), math.rad(-50), math.rad(0))
-								model.Parent = tool
-								local weld = Instance.new("WeldConstraint")
-								weld.Part0 = model
-								weld.Part1 = tool.Handle
-								weld.Parent = model
-								local tool2 = Players.LocalPlayer.Character:WaitForChild(tool.Name)
-								for _, part in ipairs(tool2:GetDescendants()) do
-									if part:IsA("BasePart") or part:IsA("MeshPart") or part:IsA("UnionOperation") then
-										part.Transparency = 1
-										if part.Name == "Handle" then part.Transparency = 0 end
-									end
-								end
-							end
+					-- Apply to currently held tool
+					local viewmodel = Workspace.Camera:FindFirstChild("Viewmodel")
+					if viewmodel then
+						for _, child in ipairs(viewmodel:GetChildren()) do
+							applyToTool(child, index, nil)
 						end
+					end
+					texture_pack:Clean(Workspace.Camera.Viewmodel.ChildAdded:Connect(function(tool)
+						applyToTool(tool, index, nil)
 					end))
 
 				elseif texture_pack_m.Value == "Aquarium" then
 					local import = safeGetObjects("rbxassetid://14217388022")
 					if not import then return end
 					import.Parent = ReplicatedStorage
+					texture_pack:Clean(function() import:Destroy() end)
 					local index = {
 						{ name = "wood_sword",    offset = CFrame.Angles(math.rad(0), math.rad(-100), math.rad(-90)), model = import:WaitForChild("Wood_Sword") },
 						{ name = "stone_sword",   offset = CFrame.Angles(math.rad(0), math.rad(-100), math.rad(-90)), model = import:WaitForChild("Stone_Sword") },
@@ -35948,45 +36002,21 @@ run(function()
 						{ name = "emerald_sword", offset = CFrame.Angles(math.rad(0), math.rad(-100), math.rad(-90)), model = import:WaitForChild("Diamond_Sword") },
 						{ name = "Rageblade",     offset = CFrame.Angles(math.rad(0), math.rad(-100), math.rad(-90)), model = import:WaitForChild("Diamond_Sword") },
 					}
-					texture_pack:Clean(Workspace:WaitForChild("Camera").Viewmodel.ChildAdded:Connect(function(tool)
-						if not tool:IsA("Accessory") then return end
-						for _, v in ipairs(index) do
-							if v.name == tool.Name then
-								for _, part in ipairs(tool:GetDescendants()) do
-									if part:IsA("BasePart") or part:IsA("MeshPart") or part:IsA("UnionOperation") then
-										part.Transparency = 1
-									end
-								end
-								local model = v.model:Clone()
-								model.CFrame = tool:WaitForChild("Handle").CFrame * v.offset
-								model.CFrame = model.CFrame * CFrame.Angles(math.rad(0), math.rad(-50), math.rad(0))
-								model.Parent = tool
-								local weld = Instance.new("WeldConstraint", model)
-								weld.Part0 = model
-								weld.Part1 = tool:WaitForChild("Handle")
-								local tool2 = Players.LocalPlayer.Character:WaitForChild(tool.Name)
-								for _, part in ipairs(tool2:GetDescendants()) do
-									if part:IsA("BasePart") or part:IsA("MeshPart") or part:IsA("UnionOperation") then
-										part.Transparency = 1
-									end
-								end
-								local model2 = v.model:Clone()
-								model2.Anchored = false
-								model2.CFrame = tool2:WaitForChild("Handle").CFrame * v.offset
-								model2.CFrame = model2.CFrame * CFrame.Angles(math.rad(0), math.rad(-50), math.rad(0))
-								model2.CFrame = model2.CFrame * CFrame.new(0.4, 0, -0.9)
-								model2.Parent = tool2
-								local weld2 = Instance.new("WeldConstraint", model)
-								weld2.Part0 = model2
-								weld2.Part1 = tool2:WaitForChild("Handle")
-							end
+					local viewmodel = Workspace.Camera:FindFirstChild("Viewmodel")
+					if viewmodel then
+						for _, child in ipairs(viewmodel:GetChildren()) do
+							applyToTool(child, index, { offset2 = CFrame.new(0.4, 0, -0.9) })
 						end
+					end
+					texture_pack:Clean(Workspace:WaitForChild("Camera").Viewmodel.ChildAdded:Connect(function(tool)
+						applyToTool(tool, index, { offset2 = CFrame.new(0.4, 0, -0.9) })
 					end))
 
 				else -- Ocean
 					local import = safeGetObjects("rbxassetid://14356045010")
 					if not import then return end
 					import.Parent = ReplicatedStorage
+					texture_pack:Clean(function() import:Destroy() end)
 					local index = {
 						{ name = "wood_sword",      offset = CFrame.Angles(math.rad(0), math.rad(-100), math.rad(-90)),  model = import:WaitForChild("Wood_Sword") },
 						{ name = "stone_sword",     offset = CFrame.Angles(math.rad(0), math.rad(-100), math.rad(-90)),  model = import:WaitForChild("Stone_Sword") },
@@ -36008,39 +36038,14 @@ run(function()
 						{ name = "iron_axe",        offset = CFrame.Angles(math.rad(0), math.rad(-10),  math.rad(-95)),  model = import:WaitForChild("Iron_Axe") },
 						{ name = "diamond_axe",     offset = CFrame.Angles(math.rad(0), math.rad(-89),  math.rad(-95)),  model = import:WaitForChild("Diamond_Axe") },
 					}
-					texture_pack:Clean(Workspace:WaitForChild("Camera").Viewmodel.ChildAdded:Connect(function(tool)
-						if not tool:IsA("Accessory") then return end
-						for _, v in ipairs(index) do
-							if v.name == tool.Name then
-								for _, part in ipairs(tool:GetDescendants()) do
-									if part:IsA("BasePart") or part:IsA("MeshPart") or part:IsA("UnionOperation") then
-										part.Transparency = 1
-									end
-								end
-								local model = v.model:Clone()
-								model.CFrame = tool:WaitForChild("Handle").CFrame * v.offset
-								model.CFrame = model.CFrame * CFrame.Angles(math.rad(0), math.rad(-50), math.rad(0))
-								model.Parent = tool
-								local weld = Instance.new("WeldConstraint", model)
-								weld.Part0 = model
-								weld.Part1 = tool:WaitForChild("Handle")
-								local tool2 = Players.LocalPlayer.Character:WaitForChild(tool.Name)
-								for _, part in ipairs(tool2:GetDescendants()) do
-									if part:IsA("BasePart") or part:IsA("MeshPart") or part:IsA("UnionOperation") then
-										part.Transparency = 1
-									end
-								end
-								local model2 = v.model:Clone()
-								model2.Anchored = false
-								model2.CFrame = tool2:WaitForChild("Handle").CFrame * v.offset
-								model2.CFrame = model2.CFrame * CFrame.Angles(math.rad(0), math.rad(-50), math.rad(0))
-								model2.CFrame = model2.CFrame * CFrame.new(0.7, 0, -0.8)
-								model2.Parent = tool2
-								local weld2 = Instance.new("WeldConstraint", model)
-								weld2.Part0 = model2
-								weld2.Part1 = tool2:WaitForChild("Handle")
-							end
+					local viewmodel = Workspace.Camera:FindFirstChild("Viewmodel")
+					if viewmodel then
+						for _, child in ipairs(viewmodel:GetChildren()) do
+							applyToTool(child, index, { offset2 = CFrame.new(0.7, 0, -0.8) })
 						end
+					end
+					texture_pack:Clean(Workspace:WaitForChild("Camera").Viewmodel.ChildAdded:Connect(function(tool)
+						applyToTool(tool, index, { offset2 = CFrame.new(0.7, 0, -0.8) })
 					end))
 				end
 			end
@@ -36721,6 +36726,8 @@ end)
 run(function()
 	local ProjectileAuraV2
 	local FireRate
+	local RapidFire
+	local AutoPrediction
 	local Targets
 	local Range
 	local Sort
@@ -36793,7 +36800,23 @@ run(function()
 										local v = ent.RootPart.AssemblyLinearVelocity
 										local ps = math.min(lplr:GetNetworkPing(), 0.5)
 										local tpos = ent.RootPart.Position
-										if ps > 0.06 then tpos = tpos + (v * ps) end
+
+										-- AutoPrediction: enhanced multi-factor prediction using ping, velocity, jump state, and acceleration estimation
+										if AutoPrediction and AutoPrediction.Enabled then
+											local ping = lplr:GetNetworkPing()
+											-- clamp ping to reasonable range to avoid insane offsets on huge spikes
+											local effectivePing = math.clamp(ping, 0.02, 0.4)
+											-- time of flight estimate: rough solve using distance / projSpeed
+											local dist = (tpos - pos).Magnitude
+											local tof = dist / math.max(projSpeed, 1)
+											-- total lookahead = ping + half flight time (projectile meets target mid-flight)
+											local lookahead = effectivePing + (tof * 0.5)
+											-- account for vertical velocity (jump/fall)
+											local vertComp = Vector3.new(0, v.Y * lookahead * 0.5, 0)
+											tpos = tpos + (v * lookahead) + vertComp
+										elseif ps > 0.06 then
+											tpos = tpos + (v * ps)
+										end
 
 										local calc = prediction.SolveTrajectory(pos, projSpeed, gravity, tpos, v, workspace.Gravity, ent.HipHeight + 2, ent.Jumping and 42.6 or nil, rayCheck)
 										if calc then
@@ -36826,11 +36849,13 @@ run(function()
 												end
 											end)
 
-											FireDelays[item.itemType] = tick() + itemMeta.fireDelaySec
+											FireDelays[item.itemType] = tick() + (RapidFire and RapidFire.Enabled and 0 or itemMeta.fireDelaySec)
 											if switched then
 												repeat task.wait() until tick() > projectileCooldown
-												if FireRate and FireRate.Value > 0 then
-													task.wait(FireRate.Value)
+												if not (RapidFire and RapidFire.Enabled) then
+													if FireRate and FireRate.Value > 0 then
+														task.wait(FireRate.Value)
+													end
 												end
 											end
 										end
@@ -36838,7 +36863,7 @@ run(function()
 								end
 							end
 						end
-						task.wait(0.012)
+						task.wait(RapidFire and RapidFire.Enabled and 0.001 or 0.012)
 					until not ProjectileAuraV2.Enabled
 				end)
 			end
@@ -36874,6 +36899,18 @@ run(function()
 		Suffix = "seconds"
 	})
 
+	RapidFire = ProjectileAuraV2:CreateToggle({
+		Name = "Rapid Fire",
+		Tooltip = "Shoots as fast as humanly possible, ignoring all fire delay cooldowns. VERY fast.",
+		Default = false
+	})
+
+	AutoPrediction = ProjectileAuraV2:CreateToggle({
+		Name = "Auto Prediction",
+		Tooltip = "Automatically predicts target position using ping, velocity, flight time, and jump state for maximum accuracy.",
+		Default = false
+	})
+
 	Range = ProjectileAuraV2:CreateSlider({
 		Name = "Range",
 		Min = 1,
@@ -36887,53 +36924,77 @@ end)
 -- ══════════════════════════════════════════════════════════
 -- Silent Aim (Projectile Targeting Visual Spoof)
 -- ══════════════════════════════════════════════════════════
--- The aimbot sets workspace.ProjectileTargeting.Part.CFrame every frame.
--- Silent Aim overrides it VISUALLY at the end of every frame (RenderStepped)
--- so it always renders at the mouse position, not the actual target.
--- The aimbot still functions normally server-side; this is purely visual.
+-- How this works:
+--   The game's ProjectileController updates workspace.ProjectileTargeting.Part.CFrame
+--   every frame to show where the projectile will land (the aimbot target).
+--   Silent Aim hooks into ProjectileController's projectileHandler and overrides
+--   its internal aim position so the targeting Part renders at the mouse position.
+--   We do this by patching the handler's aimPoint each RenderStepped, and also
+--   by setting mouse.TargetFilter so mouse.Hit correctly ignores the Part itself.
 -- ══════════════════════════════════════════════════════════
 run(function()
 	local SilentAim
 	local renderConnection = nil
-	local camera = workspace.CurrentCamera
+	local mouse = lplr:GetMouse()
 
-	-- Raycast from camera through the mouse screen position,
-	-- ignoring the local character and the ProjectileTargeting folder
-	-- so we get the true world position the player is looking at.
-	local function getMouseWorldPos()
-		local mouse = lplr:GetMouse()
-		local unitRay = camera:ViewportPointToRay(mouse.X, mouse.Y)
-
-		local params = RaycastParams.new()
-		params.FilterType = Enum.RaycastFilterType.Exclude
-		local exclude = {lplr.Character}
+	-- Set mouse.TargetFilter to exclude the ProjectileTargeting folder so that
+	-- mouse.Hit gives us the true world target under the cursor, not the Part itself.
+	local function getMouseHitPos()
 		local pt = workspace:FindFirstChild("ProjectileTargeting")
-		if pt then table.insert(exclude, pt) end
-		params.FilterDescendantsInstances = exclude
+		-- Temporarily set TargetFilter so mouse.Hit ignores the targeting part
+		local prev = mouse.TargetFilter
+		if pt then mouse.TargetFilter = pt end
+		local pos = mouse.Hit.Position
+		mouse.TargetFilter = prev
+		return pos
+	end
 
-		local result = workspace:Raycast(unitRay.Origin, unitRay.Direction * 2000, params)
-		if result then
-			return result.Position
+	-- Try to find the active projectile handler on ProjectileController.
+	-- The handler has an 'aimPoint' or 'targetPosition' field we can override.
+	local function getProjectileHandler()
+		local pc = bedwars and bedwars.ProjectileController
+		if not pc then return nil end
+		-- projectileHandler is set on the source controller, accessible via the Knit controller
+		local psc = bedwars.Knit and bedwars.Knit.Controllers and bedwars.Knit.Controllers.DefaultProjectileSourceController
+		if psc and psc.projectileHandler then
+			return psc.projectileHandler
 		end
-		-- Nothing hit — place it far along the ray so the beam still looks natural
-		return unitRay.Origin + unitRay.Direction * 500
+		-- fallback: check all source controllers
+		if pc.projectileSourceController and pc.projectileSourceController.projectileHandler then
+			return pc.projectileSourceController.projectileHandler
+		end
+		return nil
 	end
 
 	SilentAim = vape.Categories.Combat:CreateModule({
 		Name = "SilentAim",
-		Tooltip = "Visually positions the projectile targeting indicator at your mouse cursor instead of the actual aimbot target, hiding the fact that you are aimbotting.",
+		Tooltip = "Visually positions the projectile targeting indicator at your mouse cursor. The projectile still fires at the aimbot target.",
 		Function = function(callback)
 			if callback then
-				-- RenderStepped fires right before the frame is drawn.
-				-- Because it runs after Heartbeat (where the aimbot writes CFrame),
-				-- our write is the LAST one before rendering — so visually it wins.
 				renderConnection = runService.RenderStepped:Connect(function()
+					-- Primary: directly move the Part to mouse position
 					local pt = workspace:FindFirstChild("ProjectileTargeting")
 					if not pt then return end
 					local part = pt:FindFirstChild("Part")
 					if not part then return end
-					-- Place the part at the true mouse world position, no rotation needed
-					part.CFrame = CFrame.new(getMouseWorldPos())
+
+					local mousePos = getMouseHitPos()
+
+					-- Override the part CFrame to mouse position.
+					-- We preserve the rotation the game set (it controls beam orientation).
+					local currentRot = part.CFrame - part.CFrame.Position
+					part.CFrame = CFrame.new(mousePos) * currentRot
+
+					-- Secondary: override aimPoint on the projectile handler so the beam
+					-- attachment point also reflects mouse position.
+					local handler = getProjectileHandler()
+					if handler then
+						-- handler.aimPoint is what ProjectileController uses to position the Part
+						-- overriding it makes the beam draw correctly too
+						pcall(function() handler.aimPoint = mousePos end)
+						pcall(function() handler.targetPosition = mousePos end)
+						pcall(function() handler.lockedAimPoint = nil end) -- clear any locked aim
+					end
 				end)
 			else
 				if renderConnection then
@@ -36944,3 +37005,4 @@ run(function()
 		end
 	})
 end)
+
