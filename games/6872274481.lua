@@ -5056,7 +5056,7 @@ run(function()
     local function canHitWithCustomReg()
         if not CustomHitReg or not CustomHitReg.Enabled then return true end
         if not CustomHitRegSlider then return true end
-        if CustomHitRegSlider.Value >= 36 then return true end
+        if CustomHitRegSlider.Value >= 46 then return true end
         local currentTime = tick()
         local delayBetweenHits = 10 / CustomHitRegSlider.Value
         if currentTime - lastCustomHitTime >= delayBetweenHits then
@@ -6041,7 +6041,7 @@ run(function()
     CustomHitRegSlider = Killaura:CreateSlider({
         Name = 'Hits Per Second',
         Min = 1,
-        Max = 36,
+        Max = 46,
         Default = 30,
         Tooltip = 'Maximum hits per second',
         Visible = false
