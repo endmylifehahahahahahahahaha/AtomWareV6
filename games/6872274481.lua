@@ -671,9 +671,10 @@ local sortmethods = {
 		if not a.Entity or not a.Entity.RootPart then return false end
 		if not b.Entity or not b.Entity.RootPart then return true end
 		local selfrootpos = entitylib.character.RootPart.Position
-		local localFacing = (ViewMode.Value == 'Third Person' and gameCamera.CFrame.LookVector or entitylib.character.RootPart.CFrame.LookVector) * Vector3.new(1, 0, 1)
-		local angle = math.acos(localfacing:Dot(((a.Entity.RootPart.Position - selfrootpos) * Vector3.new(1, 0, 1)).Unit))
-		local angle2 = math.acos(localfacing:Dot(((b.Entity.RootPart.Position - selfrootpos) * Vector3.new(1, 0, 1)).Unit))
+		local _F = Vector3.new(1, 0, 1)
+		local localFacing = (ViewMode.Value == 'Third Person' and gameCamera.CFrame.LookVector or entitylib.character.RootPart.CFrame.LookVector) * _F
+		local angle = math.acos(localfacing:Dot(((a.Entity.RootPart.Position - selfrootpos) * _F).Unit))
+		local angle2 = math.acos(localfacing:Dot(((b.Entity.RootPart.Position - selfrootpos) * _F).Unit))
 		return angle < angle2
 	end,
 	Distance = function(a, b)
@@ -2320,6 +2321,7 @@ end
 run(function()
 local AimAssist
 	local Targets
+	local _AA_FLAT = Vector3.new(1, 0, 1) -- cached flat-plane vec for AimAssist hot path
 	local Sort
 	local AimSpeed
 	local Smoothness
@@ -2389,8 +2391,8 @@ local AimAssist
 		if not ent or not ent.RootPart then return false end
 		if not entitylib.character or not entitylib.character.RootPart then return false end
 		local delta = (ent.RootPart.Position - entitylib.character.RootPart.Position)
-		local localFacing = (ViewMode.Value == 'Third Person' and gameCamera.CFrame.LookVector or entitylib.character.RootPart.CFrame.LookVector) * Vector3.new(1, 0, 1)
-		local flatDelta = delta * Vector3.new(1, 0, 1)
+		local localFacing = (ViewMode.Value == 'Third Person' and gameCamera.CFrame.LookVector or entitylib.character.RootPart.CFrame.LookVector) * _AA_FLAT
+		local flatDelta = delta * _AA_FLAT
 		if flatDelta.Magnitude <= 0.001 then return false end
 		local angle = math.acos(math.clamp(localFacing:Dot(flatDelta.Unit), -1, 1))
 		return angle < math.rad(AngleSlider.Value / 2)
@@ -4960,6 +4962,40 @@ run(function()
     local fastHitsActivationReady = false
     local fastHitsLastHitTime = 0
 
+    -- ── Pre-allocated reusable tables to eliminate per-hit GC pressure ──────
+    -- These are filled/wiped each attack instead of allocating new tables.
+    -- ── Reusable swing-effect function: defined once, avoids closure alloc per swing ──
+    local _swingEffectMeta = nil
+    local function _doSwingEffect()
+        bedwars.SwordController:playSwordEffect(_swingEffectMeta, false)
+        if _swingEffectMeta.displayName:find(' Scythe') then
+            bedwars.ScytheController:playLocalAnimation()
+        end
+    end
+    -- ────────────────────────────────────────────────────────────────────────
+
+    local _flatVec = Vector3.new(1, 0, 1)           -- cached, never changes
+    local _firePayload = {                           -- reused every FireAttackRemote call
+        weapon = nil,
+        chargedAttack = { chargeRatio = 0 },
+        lastSwingServerTimeDelta = 0,
+        entityInstance = nil,
+        validate = {
+            raycast = {
+                cameraPosition = { value = nil },
+                cursorDirection = { value = nil },
+            },
+            targetPosition = { value = nil },
+            selfPosition  = { value = nil },
+        }
+    }
+    local _vapeTargetInfoEntry = {                   -- reused for vapeTargetInfo.Targets.Killaura
+        Humanoid = { Health = 0, MaxHealth = 0 },
+        Player = nil,
+    }
+    local _attackedEntry = { Entity = nil, Check = nil } -- reused for attacked table inserts
+    -- ────────────────────────────────────────────────────────────────────────
+
     task.spawn(function()
         AttackRemote = bedwars.Client:Get(remotes.AttackEntity).instance
         projectileRemote = bedwars.Client:Get(remotes.FireProjectile).instance
@@ -5662,7 +5698,7 @@ run(function()
                         local isClaw = _cachedIsClaw
 
                         local selfpos = entitylib.character.RootPart.Position
-                        local flatLV = entitylib.character.RootPart.CFrame.LookVector * Vector3.new(1, 0, 1)
+                        local flatLV = entitylib.character.RootPart.CFrame.LookVector * _flatVec
                         local localfacing = flatLV.Magnitude > 0.001 and flatLV.Unit or entitylib.character.RootPart.CFrame.RightVector
                         local maxAngle = math.rad(AngleSlider.Value) / 2
                         local minDot = math.cos(maxAngle)
@@ -5683,7 +5719,7 @@ run(function()
                         local hasValidAttackTargets = false
 
 						for _, v in swingPlrs do
-							local flat = (v.RootPart.Position - selfpos) * Vector3.new(1, 0, 1)
+							local flat = (v.RootPart.Position - selfpos) * _flatVec
 							local flatMag = flat.Magnitude
 							if flatMag <= 1.0 or localfacing:Dot(flat / flatMag) >= minDot then
 								hasValidSwingTargets = true
@@ -5692,7 +5728,7 @@ run(function()
 						end
 
 						for _, v in attackPlrs do
-							local flat = (v.RootPart.Position - selfpos) * Vector3.new(1, 0, 1)
+							local flat = (v.RootPart.Position - selfpos) * _flatVec
 							local flatMag = flat.Magnitude
 							if flatMag <= 1.0 or localfacing:Dot(flat / flatMag) >= minDot then
 								hasValidAttackTargets = true
@@ -5717,19 +5753,21 @@ run(function()
                             if hasValidAttackTargets then
                                 for _, v in attackPlrs do
                                     local delta = v.RootPart.Position - selfpos
-                                    local flat = delta * Vector3.new(1, 0, 1)
+                                    local flat = delta * _flatVec
                                     local flatMag = flat.Magnitude
                                     if flatMag > 1.0 and localfacing:Dot(flat / flatMag) < minDot then continue end
 
-                                    table.insert(attacked, {
-                                        Entity = v,
-                                        Check = delta.Magnitude > AttackRange.Value and BoxSwingColor or BoxAttackColor
-                                    })
+                                    -- Reuse pre-allocated entry; avoids a new table allocation per target per frame
+                                    local _e = { Entity = v, Check = delta.Magnitude > AttackRange.Value and BoxSwingColor or BoxAttackColor }
+                                    table.insert(attacked, _e)
                                     targetinfo.Targets[v] = tick() + 1
 
                                     if vapeTargetInfo and vapeTargetInfo.Targets then
-                                        local info = {Humanoid = {Health = v.Health, MaxHealth = v.MaxHealth}, Player = v.Player}
-                                        vapeTargetInfo.Targets.Killaura = info
+                                        -- Reuse _vapeTargetInfoEntry: fill in-place instead of allocating nested tables each hit
+                                        _vapeTargetInfoEntry.Humanoid.Health = v.Health
+                                        _vapeTargetInfoEntry.Humanoid.MaxHealth = v.MaxHealth
+                                        _vapeTargetInfoEntry.Player = v.Player
+                                        vapeTargetInfo.Targets.Killaura = _vapeTargetInfoEntry
                                     end
 
                                     if not Attacking then
@@ -5740,12 +5778,8 @@ run(function()
                                             if allowSwingAnim then
                                                 local swingSpeed = SwingTime and SwingTime.Enabled and math.max(SwingTimeSlider.Value, 0.11) or (meta.sword and meta.sword.respectAttackSpeedForEffects and meta.sword.attackSpeed or 0.25)
                                                 AnimDelay = tick() + swingSpeed
-                                                pcall(function()
-                                                    bedwars.SwordController:playSwordEffect(meta, false)
-                                                    if meta.displayName:find(' Scythe') then
-                                                        bedwars.ScytheController:playLocalAnimation()
-                                                    end
-                                                end)
+                                                _swingEffectMeta = meta
+                                                pcall(_doSwingEffect)
                                                 if vape.ThreadFix and setthreadidentity then
                                                     pcall(setthreadidentity, 8)
                                                 end
@@ -5805,20 +5839,15 @@ run(function()
                                     else
                                         bedwars.SwordController.lastAttack = _serverNow
                                         _swingCooldown = tick()
-                                        FireAttackRemote({
-                                            weapon = sword.tool,
-                                            chargedAttack = {chargeRatio = 0},
-                                            lastSwingServerTimeDelta = math.clamp(lastSwingServerTimeDelta, 0.2, 0.8),
-                                            entityInstance = v.Character,
-                                            validate = {
-                                                raycast = {
-                                                    cameraPosition = {value = camOrigin},
-                                                    cursorDirection = {value = dir}
-                                                },
-                                                targetPosition = {value = targetPos},
-                                                selfPosition = {value = spoofedPos}
-                                            }
-                                        })
+                                        -- Fill the pre-allocated payload table instead of allocating 7 new tables per hit
+                                        _firePayload.weapon = sword.tool
+                                        _firePayload.lastSwingServerTimeDelta = math.clamp(lastSwingServerTimeDelta, 0.2, 0.8)
+                                        _firePayload.entityInstance = v.Character
+                                        _firePayload.validate.raycast.cameraPosition.value = camOrigin
+                                        _firePayload.validate.raycast.cursorDirection.value = dir
+                                        _firePayload.validate.targetPosition.value = targetPos
+                                        _firePayload.validate.selfPosition.value = spoofedPos
+                                        FireAttackRemote(_firePayload)
                                     end
                                 end
                             else
@@ -5827,12 +5856,8 @@ run(function()
                                     if not (Swing and Swing.Enabled) and AnimDelay <= tick() and not (LegitAura and LegitAura.Enabled) then
                                         local swingSpeed = SwingTime and SwingTime.Enabled and math.max(SwingTimeSlider.Value, 0.11) or (meta.sword and meta.sword.respectAttackSpeedForEffects and meta.sword.attackSpeed or 0.25)
                                         AnimDelay = tick() + swingSpeed
-                                        pcall(function()
-                                            bedwars.SwordController:playSwordEffect(meta, false)
-                                            if meta.displayName:find(' Scythe') then
-                                                bedwars.ScytheController:playLocalAnimation()
-                                            end
-                                        end)
+                                        _swingEffectMeta = meta
+                                        pcall(_doSwingEffect)
                                         if vape.ThreadFix and setthreadidentity then
                                             pcall(setthreadidentity, 8)
                                         end
@@ -5864,13 +5889,13 @@ run(function()
                     end
 
                     if Face and Face.Enabled and attacked[1] then
-                        local vec = attacked[1].Entity.RootPart.Position * Vector3.new(1, 0, 1)
+                        local vec = attacked[1].Entity.RootPart.Position * _flatVec
                         local targetCFrame = CFrame.lookAt(entitylib.character.RootPart.Position, Vector3.new(vec.X, entitylib.character.RootPart.Position.Y + 0.001, vec.Z))
                         local speed = FaceSpeed and FaceSpeed.Value or 15
                         entitylib.character.RootPart.CFrame = entitylib.character.RootPart.CFrame:Lerp(targetCFrame, math.clamp(speed / 100, 0.01, 1))
                     end
 
-                    pcall(function() if RangeCirclePart ~= nil then RangeCirclePart.Parent = gameCamera end end)
+                    if RangeCirclePart ~= nil then pcall(function() RangeCirclePart.Parent = gameCamera end) end
                     task.wait(1 / math.clamp(UpdateRate.Value, 1, 60))
                 until not Killaura.Enabled
             else
@@ -6410,21 +6435,24 @@ run(function()
 		AttackRemote = bedwars.Client:Get(remotes.AttackEntity).instance
 	end)
 
+	-- Cached flat-plane vector — never allocate Vector3.new(1,0,1) in a hot loop
+	local FLAT = Vector3.new(1, 0, 1)
+
 	local function flatAngle(selfpos, targetpos, facing)
-		local flat = (targetpos - selfpos) * Vector3.new(1, 0, 1)
+		local flat = (targetpos - selfpos) * FLAT
 		if flat.Magnitude < 0.001 then return 0 end
 		return math.acos(math.clamp(facing:Dot(flat.Unit), -1, 1))
 	end
 
 	local function flatWithinAngle(selfpos, targetpos, facing, minDot)
-		local flat = (targetpos - selfpos) * Vector3.new(1, 0, 1)
+		local flat = (targetpos - selfpos) * FLAT
 		local flatMag = flat.Magnitude
 		return flatMag < 0.001 or facing:Dot(flat / flatMag) >= minDot
 	end
 
 	local function flatFacing(rootCFrame)
-		local lv = rootCFrame.LookVector * Vector3.new(1, 0, 1)
-		if lv.Magnitude < 0.001 then return rootCFrame.RightVector * Vector3.new(1, 0, 1) end
+		local lv = rootCFrame.LookVector * FLAT
+		if lv.Magnitude < 0.001 then return rootCFrame.RightVector * FLAT end
 		return lv.Unit
 	end
 
@@ -6661,20 +6689,15 @@ run(function()
 										end
 									end
 								end
-								AttackRemote:FireServer({
-									weapon = sword.tool,
-									chargedAttack = {chargeRatio = 0},
-									lastSwingServerTimeDelta = math.clamp(lastSwingServerTimeDelta or 0.4, 0.2, 0.8),
-									entityInstance = v.Character,
-									validate = {
-										raycast = {
-											cameraPosition = {value = pos},
-											cursorDirection = {value = dir}
-										},
-										targetPosition = {value = actualRoot.Position},
-										selfPosition = {value = pos}
-									}
-								})
+								-- Reuse pre-allocated _firePayload to avoid 7 table allocations per hit
+								_firePayload.weapon = sword.tool
+								_firePayload.lastSwingServerTimeDelta = math.clamp(lastSwingServerTimeDelta or 0.4, 0.2, 0.8)
+								_firePayload.entityInstance = v.Character
+								_firePayload.validate.raycast.cameraPosition.value = pos
+								_firePayload.validate.raycast.cursorDirection.value = dir
+								_firePayload.validate.targetPosition.value = actualRoot.Position
+								_firePayload.validate.selfPosition.value = pos
+								AttackRemote:FireServer(_firePayload)
 							end
 						end
 					end
@@ -6698,7 +6721,7 @@ run(function()
 					end
 
 					if Face and Face.Enabled and attacked[1] then
-						local vec = attacked[1].Entity.RootPart.Position * Vector3.new(1, 0, 1)
+						local vec = attacked[1].Entity.RootPart.Position * FLAT
 						entitylib.character.RootPart.CFrame = CFrame.lookAt(entitylib.character.RootPart.Position, Vector3.new(vec.X, entitylib.character.RootPart.Position.Y + 0.001, vec.Z))
 					end
 
@@ -36604,6 +36627,10 @@ run(function()
 		projectileRemote = bedwars.Client:Get(remotes.FireProjectile).instance
 	end)
 
+	-- Pre-allocated shot payload tables — reused every shot to avoid GC pressure
+	local _shotPayloadLocal = { drawDurationSeconds = 1 }
+	local _shotPayloadRemote = { drawDurationSeconds = 1, shotId = "" }
+
 	local function getAmmo(check, item)
 		if not check.ammoItemTypes then return item.itemType end
 		for _, it in store.localInventory and store.localInventory.inventory.items or store.inventory.inventory.items do
@@ -36683,8 +36710,9 @@ run(function()
 													local id = httpService:GenerateGUID(true)
 													local bowConst = bedwars.BowConstantsTable
 													local shootPosition = (CFrame.new(pos, calc) * CFrame.new(Vector3.new(-bowConst.RelX, -bowConst.RelY, -bowConst.RelZ))).Position
-													bedwars.ProjectileController:createLocalProjectile(meta, ammo, projectile, shootPosition, id, dir * projSpeed, { drawDurationSeconds = 1 })
-													local res = projectileRemote:InvokeServer(item.tool, ammo, projectile, shootPosition, pos, dir * projSpeed, id, { drawDurationSeconds = 1, shotId = httpService:GenerateGUID(false) }, workspace:GetServerTimeNow() - 0.045)
+													bedwars.ProjectileController:createLocalProjectile(meta, ammo, projectile, shootPosition, id, dir * projSpeed, _shotPayloadLocal)
+													_shotPayloadRemote.shotId = httpService:GenerateGUID(false)
+													local res = projectileRemote:InvokeServer(item.tool, ammo, projectile, shootPosition, pos, dir * projSpeed, id, _shotPayloadRemote, workspace:GetServerTimeNow() - 0.045)
 													if not res then
 														FireDelays[item.itemType] = tick()
 													else
@@ -36741,6 +36769,19 @@ run(function()
 	task.spawn(function()
 		projectileRemote = bedwars.Client:Get(remotes.FireProjectile).instance
 	end)
+
+	-- Pre-allocated reusable shot payload — avoids 2 new tables per shot
+	local _v2ShotPayload = { drawDurationSeconds = 1, shotId = "" }
+
+	-- Reusable InvokeServer wrapper — avoids closure alloc per shot
+	local _v2InvokeArgs = {}
+	local function _doV2Invoke()
+		return projectileRemote:InvokeServer(
+			_v2InvokeArgs[1], _v2InvokeArgs[2], _v2InvokeArgs[3],
+			_v2InvokeArgs[4], _v2InvokeArgs[5], _v2InvokeArgs[6],
+			_v2InvokeArgs[7], _v2InvokeArgs[8], _v2InvokeArgs[9]
+		)
+	end
 
 	local function getAmmoV2(check)
 		local inv = (store.localInventory and store.localInventory.inventory.items) or store.inventory.inventory.items
@@ -36821,9 +36862,13 @@ run(function()
 											local tof = dist / math.max(projSpeed, 1)
 											-- total lookahead = ping + half flight time (projectile meets target mid-flight)
 											local lookahead = effectivePing + (tof * 0.5)
-											-- account for vertical velocity (jump/fall)
-											local vertComp = Vector3.new(0, v.Y * lookahead * 0.5, 0)
-											tpos = tpos + (v * lookahead) + vertComp
+											-- account for vertical velocity (jump/fall) — avoid Vector3.new allocation
+											local vertY = v.Y * lookahead * 0.5
+											tpos = Vector3.new(
+												tpos.X + v.X * lookahead,
+												tpos.Y + v.Y * lookahead + vertY,
+												tpos.Z + v.Z * lookahead
+											)
 										elseif ps > 0.06 then
 											tpos = tpos + (v * ps)
 										end
@@ -36841,16 +36886,20 @@ run(function()
 												local bowConst = bedwars.BowConstantsTable
 												local shootPosition = (CFrame.new(pos, calc) * CFrame.new(Vector3.new(-bowConst.RelX, -bowConst.RelY, -bowConst.RelZ))).Position
 												projectileCooldown = 9e9
-												local _, res = pcall(function()
-													return projectileRemote:InvokeServer(
-														item.tool, ammo, projectile,
-														shootPosition, pos, dir * projSpeed, id,
-														{ drawDurationSeconds = 1, shotId = httpService:GenerateGUID(false) },
-														workspace:GetServerTimeNow() - 0.045
-													)
-												end)
+												-- Fill pre-allocated payload instead of creating new tables per shot
+												_v2ShotPayload.shotId = httpService:GenerateGUID(false)
+												_v2InvokeArgs[1] = item.tool
+												_v2InvokeArgs[2] = ammo
+												_v2InvokeArgs[3] = projectile
+												_v2InvokeArgs[4] = shootPosition
+												_v2InvokeArgs[5] = pos
+												_v2InvokeArgs[6] = dir * projSpeed
+												_v2InvokeArgs[7] = id
+												_v2InvokeArgs[8] = _v2ShotPayload
+												_v2InvokeArgs[9] = workspace:GetServerTimeNow() - 0.045
+												local ok, res = pcall(_doV2Invoke)
 												projectileCooldown = tick()
-												if not res then
+												if not ok or not res then
 													FireDelays[item.itemType] = tick()
 												else
 													local shoot = itemMeta.launchSound
