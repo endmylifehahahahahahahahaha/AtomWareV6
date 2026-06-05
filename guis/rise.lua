@@ -2550,7 +2550,7 @@ clickgui = Instance.new('Frame')
 clickgui.Name = 'ClickGui'
 clickgui.Size = UDim2.fromScale(1, 1)
 clickgui.BackgroundTransparency = 1
-clickgui.Visible = true
+clickgui.Visible = false
 clickgui.Parent = scaledgui
 local modal = Instance.new('TextButton')
 modal.BackgroundTransparency = 1
@@ -2572,12 +2572,11 @@ scale.Scale = 1
 scale.Parent = scaledgui
 mainapi.guiscale = scale
 scaledgui.Size = UDim2.fromScale(1 / scale.Scale, 1 / scale.Scale)
-mainframe = Instance.new('CanvasGroup')
+mainframe = Instance.new('Frame')
 mainframe.Size = UDim2.fromOffset(800, 600)
 mainframe.Position = UDim2.fromScale(0.5, 0.5)
 mainframe.AnchorPoint = Vector2.new(0.5, 0.5)
 mainframe.BackgroundColor3 = uipallet.Main
-mainframe.GroupTransparency = 1
 mainframe.Parent = clickgui
 --addBlur(mainframe)
 local selected = Instance.new('TextButton')
@@ -2647,16 +2646,9 @@ end))
 
 mainapi:Clean(clickgui:GetPropertyChangedSignal('Visible'):Connect(function()
 	mainapi:UpdateGUI(mainapi.GUIColor.Hue, mainapi.GUIColor.Sat, mainapi.GUIColor.Value, true)
-end))
-
--- Cursor loop driven by mainapi.Visible instead of clickgui.Visible
-task.spawn(function()
-	repeat
-		task.wait()
-		if not mainapi.Visible then continue end
-		if not inputService.MouseEnabled then continue end
+	if clickgui.Visible and inputService.MouseEnabled then
 		repeat
-			local visibleCheck = mainapi.Visible
+			local visibleCheck = clickgui.Visible
 			for _, v in mainapi.Windows do
 				visibleCheck = visibleCheck or v.Visible
 			end
@@ -2669,10 +2661,10 @@ task.spawn(function()
 			end
 
 			task.wait()
-		until not mainapi.Visible or mainapi.Loaded == nil
+		until mainapi.Loaded == nil
 		cursor.Visible = false
-	until mainapi.Loaded == nil
-end)
+	end
+end))
 
 mainapi:CreateCategory({
 	Name = 'Search',
@@ -3158,7 +3150,7 @@ targetinfo = {
 			end
 		end
 
-		local visible = v ~= nil or mainapi.Visible
+		local visible = v ~= nil or mainapi.gui.ScaledGui.ClickGui.Visible
 		if v then
 			targetinfoname.Text = v.Player and (targetinfodisplay.Enabled and v.Player.DisplayName or v.Player.Name) or v.Character and v.Character.Name or targetinfoname.Text
 			targetinfoshot.Image = 'rbxthumb://type=AvatarHeadShot&id='..(v.Player and v.Player.UserId or 1)..'&w=420&h=420'
@@ -3358,7 +3350,7 @@ function mainapi:UpdateGUI(hue, sat, val, default)
 		targetinfoname.TextColor3 = uipallet.MainColor
 	end
 
-	if not mainapi.Visible then return end
+	if not clickgui.Visible then return end
 
 	swatermarkversion.TextColor3 = uipallet.MainColor
 	categoryhighlight.BackgroundColor3 = color.Dark(self:RiseColor(categoryhighlight.AbsolutePosition), 0.2)
@@ -3399,22 +3391,26 @@ mainapi:Clean(inputService.InputBegan:Connect(function(inputObj)
 			if guiTween then
 				guiTween:Cancel()
 			end
-			if guiTween2 then
-				guiTween2:Cancel()
-			end
 			mainapi.Visible = not mainapi.Visible
 			mainapi:CreateNotification('Toggled', 'Toggled Click GUI '..(mainapi.Visible and 'on' or 'off'), 1)
 			modal.Modal = mainapi.Visible
 			modal.Active = mainapi.Visible
 			selected.Modal = mainapi.Visible
-			guiTween = tweenService:Create(mainscale, TweenInfo.new(0.3, mainapi.Visible and Enum.EasingStyle.Exponential or Enum.EasingStyle.Linear, Enum.EasingDirection.Out), {
+			if mainapi.Visible then
+				task.defer(function()
+					if mainapi.ThreadFix then setthreadidentity(8) end
+					clickgui.Visible = true
+				end)
+			end
+			guiTween = tweenService:Create(mainscale, TweenInfo.new(0.25, mainapi.Visible and Enum.EasingStyle.Back or Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
 				Scale = mainapi.Visible and 1 or 0
 			})
-			guiTween2 = tweenService:Create(mainframe, TweenInfo.new(0.3, mainapi.Visible and Enum.EasingStyle.Exponential or Enum.EasingStyle.Linear, Enum.EasingDirection.Out), {
-				GroupTransparency = mainapi.Visible and 0 or 1
-			})
 			guiTween:Play()
-			guiTween2:Play()
+			if not mainapi.Visible then
+				guiTween.Completed:Once(function()
+					clickgui.Visible = false
+				end)
+			end
 			mainapi:UpdateGUI(mainapi.GUIColor.Hue, mainapi.GUIColor.Sat, mainapi.GUIColor.Value, true)
 		end
 
