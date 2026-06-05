@@ -1742,9 +1742,21 @@ function mainapi:CreateCategory(categorysettings)
 		mtitle.TextYAlignment = Enum.TextYAlignment.Top
 		mtitle.FontFace = uipallet.Font
 		mtitle.Parent = modulebutton
+		-- Keybind label (top-right of module button)
+		local bindlabel = Instance.new('TextLabel')
+		bindlabel.Name = 'Bind'
+		bindlabel.Size = UDim2.fromOffset(160, 24)
+		bindlabel.Position = UDim2.new(1, -170, 0, 11)
+		bindlabel.BackgroundTransparency = 1
+		bindlabel.Text = ''
+		bindlabel.TextColor3 = color.Dark(uipallet.Text, 0.5)
+		bindlabel.TextSize = 16
+		bindlabel.TextXAlignment = Enum.TextXAlignment.Right
+		bindlabel.FontFace = uipallet.Font
+		bindlabel.Parent = modulebutton
 		modulesettings.Tooltip = modulesettings.Tooltip or 'None'
 		local desc = Instance.new('TextLabel')
-		desc.Size = UDim2.fromOffset(200, 24)
+		desc.Size = UDim2.fromOffset(350, 24)
 		desc.Position = UDim2.fromOffset(13, 45 - (modulesettings.Tooltip:find('\n') and 10 or 0))
 		desc.BackgroundTransparency = 1
 		desc.Text = modulesettings.Tooltip
@@ -1754,6 +1766,26 @@ function mainapi:CreateCategory(categorysettings)
 		desc.TextYAlignment = Enum.TextYAlignment.Top
 		desc.FontFace = uipallet.Font
 		desc.Parent = modulebutton
+		-- Hint label bottom-right: Shift+Click to bind, RMB for settings
+		local hintlabel = Instance.new('TextLabel')
+		hintlabel.Size = UDim2.fromOffset(340, 16)
+		hintlabel.Position = UDim2.new(1, -350, 1, -20)
+		hintlabel.BackgroundTransparency = 1
+		hintlabel.Text = 'Shift+Click to bind  •  Right-click for options'
+		hintlabel.TextColor3 = color.Dark(uipallet.Text, 0.7)
+		hintlabel.TextSize = 13
+		hintlabel.TextXAlignment = Enum.TextXAlignment.Right
+		hintlabel.FontFace = uipallet.Font
+		hintlabel.Visible = false
+		hintlabel.Parent = modulebutton
+		modulebutton.MouseEnter:Connect(function() hintlabel.Visible = true end)
+		modulebutton.MouseLeave:Connect(function() hintlabel.Visible = false end)
+		modulebutton.MouseEnter:Connect(function()
+			tween:Tween(modulebutton, uipallet.Tween, {BackgroundColor3 = color.Dark(uipallet.Main, 0.05)})
+		end)
+		modulebutton.MouseLeave:Connect(function()
+			tween:Tween(modulebutton, uipallet.Tween, {BackgroundColor3 = color.Dark(uipallet.Main, 0.03)})
+		end)
 		local modulechildren = Instance.new('Frame')
 		modulechildren.Size = UDim2.fromOffset(570, 10)
 		modulechildren.Position = UDim2.fromOffset(0, 68)
@@ -1774,8 +1806,14 @@ function mainapi:CreateCategory(categorysettings)
 			if tab.Mobile then
 				return
 			end
-
 			self.Bind = table.clone(tab)
+			-- Update bind label
+			if #self.Bind > 0 then
+				bindlabel.Text = '['..table.concat(self.Bind, ' + ')..']'
+				bindlabel.TextColor3 = color.Dark(uipallet.MainColor, 0.3)
+			else
+				bindlabel.Text = ''
+			end
 		end
 
 		function moduleapi:Toggle(multiple)
@@ -1825,10 +1863,12 @@ function mainapi:CreateCategory(categorysettings)
 			tween:Tween(modulebutton, uipallet.Tween, {
 				BackgroundColor3 = color.Dark(uipallet.Main, 0.03)
 			})
-		end)
-		modulebutton.MouseButton1Click:Connect(function()
+		end)		modulebutton.MouseButton1Click:Connect(function()
 			if inputService:IsKeyDown(Enum.KeyCode.LeftShift) then
 				mainapi.Binding = moduleapi
+				-- Visual feedback: show binding mode
+				bindlabel.Text = '[ press key... ]'
+				bindlabel.TextColor3 = uipallet.MainColor
 				return
 			end
 			moduleapi:Toggle()
@@ -1917,7 +1957,9 @@ function mainapi:CreateCategory(categorysettings)
 end
 
 function mainapi:CreateCategoryList(categorysettings)
-	local module, list = self.Categories.Minigames:CreateModule({
+	local targetCat = categorysettings.Category and self.Categories[categorysettings.Category]
+		or self.Categories.Minigames
+	local module, list = targetCat:CreateModule({
 		Name = categorysettings.Name,
 		Tooltip = categorysettings.Tooltip or 'Miscellaneous options for the category.'
 	})
@@ -1943,7 +1985,11 @@ function mainapi:CreateCategoryList(categorysettings)
 		end
 	end
 
-	self.Categories[categorysettings.Name] = module
+	-- Only overwrite the category reference if not already a real sidebar category
+	local storeKey = categorysettings.RealName or categorysettings.Name
+	if not (self.Categories[storeKey] and self.Categories[storeKey].Type == 'Category') then
+		self.Categories[storeKey] = module
+	end
 	return module
 end
 
@@ -2374,7 +2420,7 @@ function mainapi:Load(skipgui, profile)
 				end
 				object:Toggle(true)
 			end
-			object:SetBind(v.Bind)
+			object:SetBind(v.Bind or {})
 		end
 
 		for i, v in savedata.Legit do
@@ -2715,6 +2761,12 @@ mainapi:CreateCategory({
 	RiseIcon = 'e'
 })
 mainapi:CreateCategory({
+	Name = 'CaS',
+	RealName = 'Profiles',
+	RiseIcon = 'm',
+	Font = 3
+})
+mainapi:CreateCategory({
 	Name = 'Settings',
 	RealName = 'SettingsTab',
 	RiseIcon = 'h'
@@ -2725,15 +2777,13 @@ mainapi.Categories.Inventory = mainapi.Categories.Utility
 --[[
 	Profiles
 ]]
-local profilesCategory = mainapi:CreateCategoryProfile({
-	Name = 'CaS',
-	RealName = 'Profiles',
-	RiseIcon = 'm',
-	Font = 3,
-	Size = UDim2.fromOffset(17, 10),
-	Position = UDim2.fromOffset(12, 16),
-	Placeholder = 'Type name'
+local profilesCategory = mainapi:CreateCategoryList({
+	Name = 'Profiles',
+	Category = 'Profiles',
+	Placeholder = 'Type profile name',
+	Profiles = true
 })
+mainapi.Categories.Profiles = profilesCategory
 
 --[[
 	Preset Configs Browser (CaS tab)
@@ -3093,7 +3143,10 @@ mainapi.Categories.Main:CreateDropdown({
 	List = {'rise', 'new', 'old'},
 	Function = function(val, mouse)
 		if mouse then
-			writefile('newvape/profiles/gui.txt', val)
+			if not isfolder('newvape/profiles') then
+				pcall(makefolder, 'newvape/profiles')
+			end
+			pcall(writefile, 'newvape/profiles/gui.txt', val)
 			shared.vapereload = true
 			if shared.VapeDeveloper then
 				loadstring(readfile('newvape/loader.lua'), 'loader')()
@@ -3683,7 +3736,8 @@ end))
 mainapi:Clean(inputService.InputEnded:Connect(function(inputObj)
 	if not inputService:GetFocusedTextBox() and inputObj.KeyCode ~= Enum.KeyCode.Unknown then
 		if mainapi.Binding and inputObj.KeyCode.Name ~= 'LeftShift' then
-			mainapi.Binding:SetBind(checkKeybinds(mainapi.HeldKeybinds, mainapi.Binding.Bind, inputObj.KeyCode.Name) and {} or mainapi.HeldKeybinds, true)
+			local newBind = checkKeybinds(mainapi.HeldKeybinds, mainapi.Binding.Bind, inputObj.KeyCode.Name) and {} or mainapi.HeldKeybinds
+			mainapi.Binding:SetBind(newBind, true)
 			mainapi.Binding = nil
 		end
 	end
