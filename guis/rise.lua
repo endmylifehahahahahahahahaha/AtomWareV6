@@ -1839,11 +1839,14 @@ function mainapi:CreateCategory(categorysettings)
 		end)
 
 
+		if mainapi.ThreadFix then
+			setthreadidentity(8)
+		end
 		moduleapi.Children = Instance.new('Frame')
 		moduleapi.Children.Size = modulesettings.Size or UDim2.fromOffset(110, 100)
 		moduleapi.Children.BackgroundTransparency = 1
 		moduleapi.Children.Visible = false
-		moduleapi.Children.Parent = scaledgui
+		moduleapi.Children.Parent = childrenContainer
 		if modulesettings.Size then
 			makeDraggable(moduleapi.Children, clickgui)
 		end
@@ -2127,11 +2130,14 @@ function mainapi:CreateLegit()
 			Tooltip = modulesettings.Tooltip
 		})
 		do
+			if mainapi.ThreadFix then
+				setthreadidentity(8)
+			end
 			local modulechildren = Instance.new('Frame')
 			modulechildren.Size = modulesettings.Size or UDim2.fromOffset(110, 100)
 			modulechildren.BackgroundTransparency = 1
 			modulechildren.Visible = false
-			modulechildren.Parent = scaledgui
+			modulechildren.Parent = childrenContainer
 			if modulesettings.Size then
 				makeDraggable(modulechildren, clickgui)
 			end
@@ -2531,6 +2537,13 @@ scaledgui.Name = 'ScaledGui'
 scaledgui.Size = UDim2.fromScale(1, 1)
 scaledgui.BackgroundTransparency = 1
 scaledgui.Parent = gui
+-- Dedicated container for module Children frames so they don't pollute scaledgui descendants
+local childrenContainer = Instance.new('Frame')
+childrenContainer.Name = 'ChildrenContainer'
+childrenContainer.Size = UDim2.new()
+childrenContainer.BackgroundTransparency = 1
+childrenContainer.Visible = true
+childrenContainer.Parent = gui
 clickgui = Instance.new('Frame')
 clickgui.Name = 'ClickGui'
 clickgui.Size = UDim2.fromScale(1, 1)
@@ -2626,12 +2639,6 @@ end))
 
 mainapi:Clean(scale:GetPropertyChangedSignal('Scale'):Connect(function()
 	scaledgui.Size = UDim2.fromScale(1 / scale.Scale, 1 / scale.Scale)
-	for _, v in scaledgui:GetDescendants() do
-		if v:IsA('GuiObject') and v.Visible then
-			v.Visible = false
-			v.Visible = true
-		end
-	end
 end))
 
 mainapi:Clean(clickgui:GetPropertyChangedSignal('Visible'):Connect(function()
