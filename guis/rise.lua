@@ -1839,6 +1839,15 @@ function mainapi:CreateCategory(categorysettings)
 		end)
 
 
+		moduleapi.Children = Instance.new('Frame')
+		moduleapi.Children.Size = modulesettings.Size or UDim2.fromOffset(110, 100)
+		moduleapi.Children.BackgroundTransparency = 1
+		moduleapi.Children.Visible = false
+		moduleapi.Children.Parent = scaledgui
+		if modulesettings.Size then
+			makeDraggable(moduleapi.Children, clickgui)
+		end
+
 		moduleapi.Object = modulebutton
 		mainapi.Modules[modulesettings.Name] = moduleapi
 
@@ -2685,10 +2694,18 @@ mainapi:CreateCategory({
 	RealName = 'Modules',
 	RiseIcon = 'm'
 })
+mainapi:CreateCategory({
+	Name = 'Kits',
+	RealName = 'Kits',
+	RiseIcon = 'd'
+})
+mainapi:CreateCategory({
+	Name = 'Boost',
+	RealName = 'BoostFPS',
+	RiseIcon = 'e'
+})
 mainapi.Categories.Minigames = mainapi.Categories.Utility
 mainapi.Categories.Inventory = mainapi.Categories.Utility
-mainapi.Categories.Kits = mainapi.Categories.Utility
-mainapi.Categories.BoostFPS = mainapi.Categories.Utility
 
 --[[
 	Profiles
