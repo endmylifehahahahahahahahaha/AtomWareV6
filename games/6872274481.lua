@@ -9129,7 +9129,7 @@ run(function()
 					end
 				end))
 
-				if store.hand and LongJumpMethods[store.hand.tool.Name] then
+				if store.hand and store.hand.tool and LongJumpMethods[store.hand.tool.Name] then
 					task.spawn(LongJumpMethods[store.hand.tool.Name], getItem(store.hand.tool.Name), start, (CameraDir.Enabled and gameCamera or entitylib.character.RootPart).CFrame.LookVector)
 					return
 				end
@@ -31469,12 +31469,16 @@ run(function()
 		local targetPos = nil
 
 		if Mode.Value == 'Players' then
-			local plr = getNearestPlayer(lplr.Character.HumanoidRootPart.Position)
+			local root = lplr.Character and lplr.Character:FindFirstChild('HumanoidRootPart')
+			if not root then return end
+			local plr = getNearestPlayer(root.Position)
 			if not plr then
 				vape:CreateNotification("MouseTP", "No nearest players near Me.", 6)
 				return
 			end
-			targetPos = plr.Character.HumanoidRootPart.Position
+			local plrRoot = plr.Character and plr.Character:FindFirstChild('HumanoidRootPart')
+			if not plrRoot then return end
+			targetPos = plrRoot.Position
 
 		elseif Mode.Value == 'Mouse' then
 			local rayCheck = RaycastParams.new()

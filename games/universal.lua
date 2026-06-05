@@ -3364,7 +3364,9 @@ run(function()
 							local factor = (moving or space) and Vector3.new(6, 6, 6) or Vector3.new(2, 1, 2)
 							local pos = root.Position - Vector3.new(0, 1, 0)
 							local newpos = Region3.new(pos - factor, pos + factor):ExpandToGrid(4)
-							terrain:ReplaceMaterial(lastpos, 4, Enum.Material.Water, Enum.Material.Air)
+							if lastpos.Size.Magnitude > 0 then
+								terrain:ReplaceMaterial(lastpos, 4, Enum.Material.Water, Enum.Material.Air)
+							end
 							terrain:FillRegion(newpos, 4, Enum.Material.Water)
 							lastpos = newpos
 						end
@@ -6462,11 +6464,14 @@ run(function()
 			if callback then
 				if textChatService.ChatVersion == Enum.ChatVersion.TextChatService then
 					if Hide.Enabled and coreGui:FindFirstChild('ExperienceChat') then
-						ChatSpammer:Clean(coreGui.ExperienceChat:FindFirstChild('RCTScrollContentView', true).ChildAdded:Connect(function(msg)
-							if msg.Name:sub(1, 2) == '0-' and msg.ContentText == 'You must wait before sending another message.' then
-								msg.Visible = false
-							end
-						end))
+						local scrollView = coreGui.ExperienceChat:FindFirstChild('RCTScrollContentView', true)
+						if scrollView then
+							ChatSpammer:Clean(scrollView.ChildAdded:Connect(function(msg)
+								if msg.Name:sub(1, 2) == '0-' and msg.ContentText == 'You must wait before sending another message.' then
+									msg.Visible = false
+								end
+							end))
+						end
 					end
 				elseif replicatedStorage:FindFirstChild('DefaultChatSystemChatEvents') then
 					if Hide.Enabled then

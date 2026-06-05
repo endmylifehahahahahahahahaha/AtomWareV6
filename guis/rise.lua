@@ -1642,7 +1642,7 @@ end)
 addMaid(mainapi)
 
 function mainapi:CreateGUI()
-	return self.Categories.Minigames:CreateModule({
+	return self.Categories.SettingsTab:CreateModule({
 		Name = 'Settings',
 		Tooltip = 'Miscellaneous options for the utility.'
 	})
@@ -2714,13 +2714,18 @@ mainapi:CreateCategory({
 	RealName = 'BoostFPS',
 	RiseIcon = 'e'
 })
+mainapi:CreateCategory({
+	Name = 'Settings',
+	RealName = 'SettingsTab',
+	RiseIcon = 'h'
+})
 mainapi.Categories.Minigames = mainapi.Categories.Utility
 mainapi.Categories.Inventory = mainapi.Categories.Utility
 
 --[[
 	Profiles
 ]]
-mainapi:CreateCategoryProfile({
+local profilesCategory = mainapi:CreateCategoryProfile({
 	Name = 'CaS',
 	RealName = 'Profiles',
 	RiseIcon = 'm',
@@ -2729,6 +2734,218 @@ mainapi:CreateCategoryProfile({
 	Position = UDim2.fromOffset(12, 16),
 	Placeholder = 'Type name'
 })
+
+--[[
+	Preset Configs Browser (CaS tab)
+]]
+do
+	local function getPremadeProfiles()
+		local premades = {}
+		local currentGame = tostring(mainapi.Place)
+		if not isfolder('newvape/profiles/premade') then
+			pcall(makefolder, 'newvape/profiles/premade')
+		end
+		local ok, files = pcall(listfiles, 'newvape/profiles/premade')
+		if not ok then return premades end
+		for _, file in pairs(files) do
+			local fileName = file:gsub('\\', '/'):match('.*/(.+)%.txt$')
+			if fileName then
+				local profileName = fileName:match('^(.+)'..currentGame..'$')
+				if profileName and profileName ~= '' then
+					table.insert(premades, profileName)
+				end
+			end
+		end
+		return premades
+	end
+
+	-- Floating premade window parented to scaledgui
+	local premadeWindow = Instance.new('Frame')
+	premadeWindow.Name = 'PremadeConfigsGUI'
+	premadeWindow.Size = UDim2.fromOffset(480, 360)
+	premadeWindow.Position = UDim2.fromScale(0.5, 0.5)
+	premadeWindow.AnchorPoint = Vector2.new(0.5, 0.5)
+	premadeWindow.BackgroundColor3 = color.Dark(uipallet.Main, 0.03)
+	premadeWindow.Visible = false
+	premadeWindow.Parent = scaledgui
+	addCorner(premadeWindow)
+	makeDraggable(premadeWindow)
+	table.insert(mainapi.Windows, premadeWindow)
+
+	local premadeModal = Instance.new('TextButton')
+	premadeModal.BackgroundTransparency = 1
+	premadeModal.Text = ''
+	premadeModal.Modal = true
+	premadeModal.Parent = premadeWindow
+
+	local premadeTitleLabel = Instance.new('TextLabel')
+	premadeTitleLabel.Size = UDim2.new(1, -40, 0, 30)
+	premadeTitleLabel.Position = UDim2.fromOffset(14, 8)
+	premadeTitleLabel.BackgroundTransparency = 1
+	premadeTitleLabel.Text = 'Preset Configs'
+	premadeTitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+	premadeTitleLabel.TextColor3 = uipallet.Text
+	premadeTitleLabel.TextSize = 20
+	premadeTitleLabel.FontFace = uipallet.Font
+	premadeTitleLabel.Parent = premadeWindow
+
+	local premadeCloseBtn = Instance.new('TextButton')
+	premadeCloseBtn.Size = UDim2.fromOffset(24, 24)
+	premadeCloseBtn.Position = UDim2.new(1, -30, 0, 6)
+	premadeCloseBtn.BackgroundTransparency = 1
+	premadeCloseBtn.Text = '✕'
+	premadeCloseBtn.TextColor3 = color.Dark(uipallet.Text, 0.3)
+	premadeCloseBtn.TextSize = 16
+	premadeCloseBtn.FontFace = uipallet.Font
+	premadeCloseBtn.Parent = premadeWindow
+	premadeCloseBtn.MouseButton1Click:Connect(function()
+		premadeWindow.Visible = false
+	end)
+
+	local premadeScroll = Instance.new('ScrollingFrame')
+	premadeScroll.Size = UDim2.new(1, -14, 1, -48)
+	premadeScroll.Position = UDim2.fromOffset(7, 42)
+	premadeScroll.BackgroundTransparency = 1
+	premadeScroll.BorderSizePixel = 0
+	premadeScroll.ScrollBarThickness = 2
+	premadeScroll.ScrollBarImageColor3 = color.Dark(uipallet.Text, 0.56)
+	premadeScroll.TopImage = 'rbxasset://textures/ui/Scroll/scroll-middle.png'
+	premadeScroll.BottomImage = 'rbxasset://textures/ui/Scroll/scroll-middle.png'
+	premadeScroll.Parent = premadeWindow
+	local premadeList = Instance.new('UIListLayout')
+	premadeList.SortOrder = Enum.SortOrder.LayoutOrder
+	premadeList.Padding = UDim.new(0, 6)
+	premadeList.Parent = premadeScroll
+
+	local accentColors = {
+		Color3.fromRGB(88, 101, 242),
+		Color3.fromRGB(235, 69, 158),
+		Color3.fromRGB(87, 242, 135),
+		Color3.fromRGB(254, 231, 92),
+		Color3.fromRGB(255, 115, 66),
+		Color3.fromRGB(94, 200, 248),
+	}
+
+	local function refreshPremadeWindow()
+		for _, v in premadeScroll:GetChildren() do
+			if v:IsA('Frame') or v:IsA('TextLabel') then v:Destroy() end
+		end
+
+		local premades = getPremadeProfiles()
+		if #premades == 0 then
+			local empty = Instance.new('TextLabel')
+			empty.Size = UDim2.new(1, 0, 0, 60)
+			empty.BackgroundTransparency = 1
+			empty.Text = 'No preset configs found.\nPlace .txt files in newvape/profiles/premade/'
+			empty.TextColor3 = color.Dark(uipallet.Text, 0.5)
+			empty.TextSize = 15
+			empty.TextWrapped = true
+			empty.FontFace = uipallet.Font
+			empty.Parent = premadeScroll
+			premadeScroll.CanvasSize = UDim2.fromOffset(0, 70)
+			return
+		end
+
+		for i, profileName in ipairs(premades) do
+			local accent = accentColors[((i - 1) % #accentColors) + 1]
+			local item = Instance.new('Frame')
+			item.Name = profileName
+			item.Size = UDim2.new(1, 0, 0, 52)
+			item.BackgroundColor3 = color.Dark(uipallet.Main, 0.01)
+			item.Parent = premadeScroll
+			addCorner(item, UDim.new(0, 8))
+
+			local accentBar = Instance.new('Frame')
+			accentBar.Size = UDim2.fromOffset(3, 36)
+			accentBar.Position = UDim2.fromOffset(8, 8)
+			accentBar.BackgroundColor3 = accent
+			accentBar.BorderSizePixel = 0
+			accentBar.Parent = item
+			addCorner(accentBar, UDim.new(1, 0))
+
+			local nameLabel = Instance.new('TextLabel')
+			nameLabel.Size = UDim2.new(1, -110, 0, 24)
+			nameLabel.Position = UDim2.fromOffset(18, 8)
+			nameLabel.BackgroundTransparency = 1
+			nameLabel.Text = profileName
+			nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+			nameLabel.TextColor3 = uipallet.Text
+			nameLabel.TextSize = 17
+			nameLabel.TextTruncate = Enum.TextTruncate.AtEnd
+			nameLabel.FontFace = uipallet.Font
+			nameLabel.Parent = item
+
+			local descLabel = Instance.new('TextLabel')
+			descLabel.Size = UDim2.new(1, -110, 0, 16)
+			descLabel.Position = UDim2.fromOffset(18, 30)
+			descLabel.BackgroundTransparency = 1
+			descLabel.Text = 'Curated preset config'
+			descLabel.TextXAlignment = Enum.TextXAlignment.Left
+			descLabel.TextColor3 = color.Dark(uipallet.Text, 0.5)
+			descLabel.TextSize = 13
+			descLabel.FontFace = uipallet.Font
+			descLabel.Parent = item
+
+			local loadBtn = Instance.new('TextButton')
+			loadBtn.Size = UDim2.fromOffset(80, 30)
+			loadBtn.Position = UDim2.new(1, -88, 0, 11)
+			loadBtn.BackgroundColor3 = accent
+			loadBtn.AutoButtonColor = false
+			loadBtn.Text = 'Load'
+			loadBtn.TextColor3 = Color3.new(1, 1, 1)
+			loadBtn.TextSize = 14
+			loadBtn.FontFace = uipallet.Font
+			loadBtn.Parent = item
+			addCorner(loadBtn, UDim.new(0, 6))
+
+			loadBtn.MouseEnter:Connect(function()
+				tween:Tween(loadBtn, uipallet.Tween, {BackgroundColor3 = Color3.new(
+					math.min(accent.R * 1.15, 1),
+					math.min(accent.G * 1.15, 1),
+					math.min(accent.B * 1.15, 1)
+				)})
+			end)
+			loadBtn.MouseLeave:Connect(function()
+				tween:Tween(loadBtn, uipallet.Tween, {BackgroundColor3 = accent})
+			end)
+			loadBtn.MouseButton1Click:Connect(function()
+				local premadeFile = 'newvape/profiles/premade/'..profileName..mainapi.Place..'.txt'
+				if not isfile(premadeFile) then
+					mainapi:CreateNotification('Error', 'Config file not found!', 3, 'alert')
+					return
+				end
+				local premadeData = readfile(premadeFile)
+				-- Add to profiles list if not already there
+				local found = false
+				for _, v in ipairs(mainapi.Profiles) do
+					if v.Name == profileName then found = true break end
+				end
+				if not found then
+					table.insert(mainapi.Profiles, {Name = profileName, Bind = {}})
+				end
+				writefile('newvape/profiles/'..profileName..mainapi.Place..'.txt', premadeData)
+				mainapi:Save(profileName)
+				mainapi:Load(true)
+				premadeWindow.Visible = false
+				mainapi:CreateNotification('Loaded', 'Loaded preset: '..profileName, 3, 'info')
+			end)
+		end
+
+		task.defer(function()
+			premadeScroll.CanvasSize = UDim2.fromOffset(0, premadeList.AbsoluteContentSize.Y + 10)
+		end)
+	end
+
+	-- Store browse function for the Settings tab to use
+	mainapi.BrowsePresets = function()
+		if premadeWindow.Visible then
+			premadeWindow.Visible = false
+		else
+			refreshPremadeWindow()
+			premadeWindow.Visible = true
+		end
+	end
+end
 
 mainapi:CreateCategoryTheme({
 	Name = 'Themes',
@@ -2917,6 +3134,31 @@ mainapi.Categories.Main:CreateButton({
 	Name = 'Uninject',
 	Function = function()
 		mainapi:Uninject()
+	end
+})
+mainapi.Categories.Main:CreateButton({
+	Name = 'Browse Preset Configs',
+	Tooltip = 'Browse and load curated preset configurations',
+	Function = function()
+		if mainapi.BrowsePresets then
+			mainapi.BrowsePresets()
+		end
+	end
+})
+mainapi.Categories.Main:CreateButton({
+	Name = 'Reset Profile',
+	Tooltip = 'Disable all modules and clear binds',
+	Function = function()
+		for _, v in mainapi.Modules do
+			if v.Enabled then pcall(function() v:Toggle() end) end
+			pcall(function() v:SetBind({}, true) end)
+			v.Bind = {}
+		end
+		for _, v in mainapi.Legit.Modules do
+			if v.Enabled then pcall(function() v:Toggle() end) end
+		end
+		mainapi:Save()
+		mainapi:CreateNotification('Profile Reset', 'All modules wiped', 3, 'alert')
 	end
 })
 
