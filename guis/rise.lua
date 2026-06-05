@@ -2117,13 +2117,15 @@ function mainapi:CreateLegit()
 			end,
 			Tooltip = modulesettings.Tooltip
 		})
-		if modulesettings.Size then
+		do
 			local modulechildren = Instance.new('Frame')
-			modulechildren.Size = modulesettings.Size
+			modulechildren.Size = modulesettings.Size or UDim2.fromOffset(110, 100)
 			modulechildren.BackgroundTransparency = 1
 			modulechildren.Visible = false
 			modulechildren.Parent = scaledgui
-			makeDraggable(modulechildren, clickgui)
+			if modulesettings.Size then
+				makeDraggable(modulechildren, clickgui)
+			end
 			module.Children = modulechildren
 		end
 
@@ -2685,6 +2687,8 @@ mainapi:CreateCategory({
 })
 mainapi.Categories.Minigames = mainapi.Categories.Utility
 mainapi.Categories.Inventory = mainapi.Categories.Utility
+mainapi.Categories.Kits = mainapi.Categories.Utility
+mainapi.Categories.BoostFPS = mainapi.Categories.Utility
 
 --[[
 	Profiles
