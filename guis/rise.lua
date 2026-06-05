@@ -1709,6 +1709,9 @@ function mainapi:CreateCategory(categorysettings)
 	end
 
 	function categoryapi:CreateModule(modulesettings)
+		if mainapi.ThreadFix then
+			setthreadidentity(8)
+		end
 		local moduleapi = {
 			Enabled = false,
 			Options = {},
@@ -2508,7 +2511,6 @@ function mainapi:Uninject()
 	end
 	if mainapi.ThreadFix then
 		setthreadidentity(8)
-		clickgui.Visible = false
 	end
 	mainapi.gui:ClearAllChildren()
 	mainapi.gui:Destroy()
@@ -2548,11 +2550,12 @@ clickgui = Instance.new('Frame')
 clickgui.Name = 'ClickGui'
 clickgui.Size = UDim2.fromScale(1, 1)
 clickgui.BackgroundTransparency = 1
-clickgui.Visible = false
+clickgui.Visible = true
 clickgui.Parent = scaledgui
 local modal = Instance.new('TextButton')
 modal.BackgroundTransparency = 1
-modal.Modal = true
+modal.Modal = false
+modal.Active = false
 modal.Text = ''
 modal.Parent = clickgui
 local cursor = Instance.new('ImageLabel')
@@ -2580,9 +2583,10 @@ mainframe.Parent = clickgui
 local selected = Instance.new('TextButton')
 selected.Text = ''
 selected.BackgroundTransparency = 1
-selected.Modal = true
+selected.Modal = false
 selected.Parent = mainframe
 mainscale = Instance.new('UIScale')
+mainscale.Scale = 0
 mainscale.Parent = mainframe
 addCorner(mainframe)
 sidebar = Instance.new('Frame')
@@ -2643,9 +2647,16 @@ end))
 
 mainapi:Clean(clickgui:GetPropertyChangedSignal('Visible'):Connect(function()
 	mainapi:UpdateGUI(mainapi.GUIColor.Hue, mainapi.GUIColor.Sat, mainapi.GUIColor.Value, true)
-	if clickgui.Visible and inputService.MouseEnabled then
+end))
+
+-- Cursor loop driven by mainapi.Visible instead of clickgui.Visible
+task.spawn(function()
+	repeat
+		task.wait()
+		if not mainapi.Visible then continue end
+		if not inputService.MouseEnabled then continue end
 		repeat
-			local visibleCheck = clickgui.Visible
+			local visibleCheck = mainapi.Visible
 			for _, v in mainapi.Windows do
 				visibleCheck = visibleCheck or v.Visible
 			end
@@ -2658,10 +2669,10 @@ mainapi:Clean(clickgui:GetPropertyChangedSignal('Visible'):Connect(function()
 			end
 
 			task.wait()
-		until mainapi.Loaded == nil
+		until not mainapi.Visible or mainapi.Loaded == nil
 		cursor.Visible = false
-	end
-end))
+	until mainapi.Loaded == nil
+end)
 
 mainapi:CreateCategory({
 	Name = 'Search',
@@ -3147,7 +3158,7 @@ targetinfo = {
 			end
 		end
 
-		local visible = v ~= nil or mainapi.gui.ScaledGui.ClickGui.Visible
+		local visible = v ~= nil or mainapi.Visible
 		if v then
 			targetinfoname.Text = v.Player and (targetinfodisplay.Enabled and v.Player.DisplayName or v.Player.Name) or v.Character and v.Character.Name or targetinfoname.Text
 			targetinfoshot.Image = 'rbxthumb://type=AvatarHeadShot&id='..(v.Player and v.Player.UserId or 1)..'&w=420&h=420'
@@ -3347,7 +3358,7 @@ function mainapi:UpdateGUI(hue, sat, val, default)
 		targetinfoname.TextColor3 = uipallet.MainColor
 	end
 
-	if not clickgui.Visible then return end
+	if not mainapi.Visible then return end
 
 	swatermarkversion.TextColor3 = uipallet.MainColor
 	categoryhighlight.BackgroundColor3 = color.Dark(self:RiseColor(categoryhighlight.AbsolutePosition), 0.2)
@@ -3393,6 +3404,9 @@ mainapi:Clean(inputService.InputBegan:Connect(function(inputObj)
 			end
 			mainapi.Visible = not mainapi.Visible
 			mainapi:CreateNotification('Toggled', 'Toggled Click GUI '..(mainapi.Visible and 'on' or 'off'), 1)
+			modal.Modal = mainapi.Visible
+			modal.Active = mainapi.Visible
+			selected.Modal = mainapi.Visible
 			guiTween = tweenService:Create(mainscale, TweenInfo.new(0.3, mainapi.Visible and Enum.EasingStyle.Exponential or Enum.EasingStyle.Linear, Enum.EasingDirection.Out), {
 				Scale = mainapi.Visible and 1 or 0
 			})
@@ -3401,13 +3415,7 @@ mainapi:Clean(inputService.InputBegan:Connect(function(inputObj)
 			})
 			guiTween:Play()
 			guiTween2:Play()
-			if mainapi.Visible then
-				clickgui.Visible = mainapi.Visible
-			else
-				guiTween.Completed:Connect(function()
-					clickgui.Visible = mainapi.Visible
-				end)
-			end
+			mainapi:UpdateGUI(mainapi.GUIColor.Hue, mainapi.GUIColor.Sat, mainapi.GUIColor.Value, true)
 		end
 
 		local toggled = false
