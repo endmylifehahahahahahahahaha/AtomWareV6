@@ -184,6 +184,7 @@ local function addMaid(object)
 end
 
 local function checkKeybinds(compare, target, key)
+	if type(target) ~= 'table' then return false end
 	if table.find(target, key) then
 		for _, v in target do
 			if not table.find(compare, v) then
@@ -1203,7 +1204,7 @@ components = {
 							end
 						end
 					else
-						table.insert(mainapi.Profiles, {Name = val, Bind = ''})
+						table.insert(mainapi.Profiles, {Name = val, Bind = {}})
 					end
 				else
 					local ind = table.find(self.List, val)
@@ -2392,6 +2393,10 @@ function mainapi:Load(skipgui, profile)
 		Name = 'default',
 		Bind = {}
 	}}
+	-- Sanitize Bind fields that might be strings from old saves
+	for _, v in self.Profiles do
+		if type(v.Bind) ~= 'table' then v.Bind = {} end
+	end
 	--self.Categories.Profiles:ChangeValue()
 
 	if isfile('newvape/profiles/'..self.Profile..self.Place..'.txt') then
@@ -3724,7 +3729,7 @@ mainapi:Clean(inputService.InputBegan:Connect(function(inputObj)
 		end
 
 		for _, v in mainapi.Profiles do
-			if checkKeybinds(mainapi.HeldKeybinds, v.Bind, inputObj.KeyCode.Name) and v.Name ~= mainapi.Profile then
+			if type(v.Bind) == 'table' and checkKeybinds(mainapi.HeldKeybinds, v.Bind, inputObj.KeyCode.Name) and v.Name ~= mainapi.Profile then
 				mainapi:Save(v.Name)
 				mainapi:Load(true)
 				break
