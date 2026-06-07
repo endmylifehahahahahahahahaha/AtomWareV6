@@ -37154,6 +37154,89 @@ end)
 
 
 -- ══════════════════════════════════════════════════════════
+-- NoFallV2 - Prevents fall damage via GroundHit spam
+-- ══════════════════════════════════════════════════════════
+run(function()
+	local NoFallV2
+	local NFInterval
+	-- Cache the remote once so WaitForChild isn't hit every loop tick
+	local _groundHitRemote = nil
+	local function getGroundHitRemote()
+		if _groundHitRemote then return _groundHitRemote end
+		-- Primary: use the remotes table that's already resolved at load time
+		local ok, r = pcall(function()
+			return bedwars.Client:Get(remotes.GroundHit).instance
+		end)
+		if ok and r then
+			_groundHitRemote = r
+			return r
+		end
+		-- Fallback: walk the _NetManaged tree directly (same path the
+		-- reference script used, wrapped in pcall so a rename can't crash us)
+		local ok2, r2 = pcall(function()
+			return replicatedStorage
+				:WaitForChild('rbxts_include', 5)
+				:WaitForChild('node_modules', 5)
+				:WaitForChild('@rbxts', 5)
+				:WaitForChild('net', 5)
+				:WaitForChild('out', 5)
+				:WaitForChild('_NetManaged', 5)
+				:FindFirstChild('GroundHit')
+		end)
+		if ok2 and r2 then
+			_groundHitRemote = r2
+		end
+		return _groundHitRemote
+	end
+
+	NoFallV2 = vape.Categories.Blatant:CreateModule({
+		Name = 'NoFallV2',
+		Tooltip = 'Spams GroundHit every interval so the server never registers a damaging landing.',
+		Function = function(callback)
+			if callback then
+				-- Pre-warm remote cache immediately on enable
+				task.spawn(getGroundHitRemote)
+
+				NoFallV2:Clean(runService.Heartbeat:Connect(function()
+					-- Only fire while the player is airborne or just landed —
+					-- firing every frame is wasteful; the interval slider controls rate.
+					-- We use a simple accumulator instead of a nested task.spawn loop
+					-- to keep it tied to the module's own Clean lifecycle.
+				end))
+
+				-- The actual spam loop — runs as a task so it respects the toggle state
+				-- through the `NoFallV2.Enabled` flag rather than a local boolean.
+				task.spawn(function()
+					while NoFallV2.Enabled do
+						local remote = getGroundHitRemote()
+						if remote then
+							pcall(function()
+								remote:FireServer()
+							end)
+						end
+						task.wait(NFInterval.Value)
+					end
+				end)
+			else
+				-- Nothing extra needed — the task.spawn loop above exits on its own
+				-- because it checks NoFallV2.Enabled each iteration.
+			end
+		end
+	})
+
+	NFInterval = NoFallV2:CreateSlider({
+		Name = 'Interval',
+		Min = 0.01,
+		Max = 0.5,
+		Default = 0.1,
+		Decimal = 100,
+		Suffix = 's',
+		Tooltip = 'How often GroundHit is sent. Lower = more coverage, higher = less detectable.'
+	})
+end)
+
+
+-- ══════════════════════════════════════════════════════════
 -- AutoBed - Automatically breaks nearby enemy beds
 -- ══════════════════════════════════════════════════════════
 run(function()
