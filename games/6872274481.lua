@@ -37072,6 +37072,88 @@ end)
 
 
 -- ══════════════════════════════════════════════════════════
+-- InfiniteFly - Camera-detached void-safe fly
+-- ══════════════════════════════════════════════════════════
+run(function()
+	local InfiniteFly
+
+	local HiddenPart = Instance.new('Part')
+	HiddenPart.Parent = workspace
+	HiddenPart.Transparency = 1
+	HiddenPart.CanQuery = false
+	HiddenPart.CanTouch = false
+	HiddenPart.CanCollide = false
+	HiddenPart.Anchored = true
+
+	local oldTransparency = {}
+
+	local function doCharacterThing()
+		if entitylib.isAlive then
+			for _, value in entitylib.character.Character:GetDescendants() do
+				if value:IsA('BasePart') then
+					oldTransparency[value] = value.Transparency
+					value.Transparency = 1
+				end
+			end
+		end
+	end
+
+	local function revertCharacter()
+		if entitylib.isAlive then
+			for _, value in entitylib.character.Character:GetDescendants() do
+				if value:IsA('BasePart') then
+					value.Transparency = oldTransparency[value] or value.Transparency
+				end
+			end
+		end
+		table.clear(oldTransparency)
+	end
+
+	InfiniteFly = vape.Categories.Blatant:CreateModule({
+		Name = 'InfiniteFly',
+		Tooltip = 'Detaches camera from character and keeps you at a fixed height. Falls below -75Y auto-reset to 210.',
+		Function = function(callback)
+			gameCamera.CameraSubject = callback and HiddenPart or (entitylib.isAlive and entitylib.character.Character or nil)
+			if callback then
+				doCharacterThing()
+				HiddenPart.CFrame = entitylib.character.Character.Head.CFrame
+				entitylib.character.RootPart.CFrame = CFrame.new(
+					entitylib.character.RootPart.CFrame.X,
+					210,
+					entitylib.character.RootPart.CFrame.Z
+				)
+				InfiniteFly:Clean(runService.RenderStepped:Connect(function()
+					if not entitylib.isAlive then return end
+					-- Keep HiddenPart XZ synced so camera follows player's horizontal movement
+					HiddenPart.CFrame = CFrame.new(
+						entitylib.character.RootPart.Position.X,
+						HiddenPart.CFrame.Y,
+						entitylib.character.RootPart.Position.Z
+					)
+					-- Void safety: teleport back up if player falls too low
+					if entitylib.character.RootPart.CFrame.Y < -75 then
+						entitylib.character.RootPart.CFrame = CFrame.new(
+							entitylib.character.RootPart.CFrame.X,
+							210,
+							entitylib.character.RootPart.CFrame.Z
+						)
+					end
+				end))
+				InfiniteFly:Clean(function()
+					HiddenPart.Parent = workspace
+				end)
+			else
+				revertCharacter()
+			end
+		end,
+		ExtraText = function()
+			return 'Heatseeker'
+		end
+	})
+end)
+
+
+-- ══════════════════════════════════════════════════════════
 -- AutoBed - Automatically breaks nearby enemy beds
 -- ══════════════════════════════════════════════════════════
 run(function()
