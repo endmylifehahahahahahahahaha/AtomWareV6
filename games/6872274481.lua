@@ -36744,8 +36744,8 @@ run(function()
 	Range = ProjectileAura:CreateSlider({
 		Name = "Range",
 		Min = 1,
-		Max = 50,
-		Default = 50,
+		Max = 150,
+		Default = 80,
 		Function = function() end
 	})
 end)
@@ -36977,8 +36977,8 @@ run(function()
 	Range = ProjectileAuraV2:CreateSlider({
 		Name = "Range",
 		Min = 1,
-		Max = 50,
-		Default = 50,
+		Max = 150,
+		Default = 80,
 		Suffix = function(val) return val == 1 and "stud" or "studs" end
 	})
 end)
@@ -37066,6 +37066,748 @@ run(function()
 				end
 			end
 		end
+	})
+end)
+
+
+
+-- ══════════════════════════════════════════════════════════
+-- AutoBed - Automatically breaks nearby enemy beds
+-- ══════════════════════════════════════════════════════════
+run(function()
+	local AutoBed
+	local BedRange
+	local BedSpeed
+
+	AutoBed = vape.Categories.Blatant:CreateModule({
+		Name = 'AutoBed',
+		Tooltip = 'Automatically breaks enemy beds near you. Walk up to the bed and it breaks it instantly.',
+		Function = function(callback)
+			if callback then
+				task.spawn(function()
+					repeat
+						if entitylib.isAlive then
+							local root = lplr.Character and lplr.Character:FindFirstChild('HumanoidRootPart')
+							if root then
+								for _, obj in workspace:GetDescendants() do
+									if obj.Name == 'bed' and obj:IsA('BasePart') then
+										local dist = (obj.Position - root.Position).Magnitude
+										if dist <= BedRange.Value then
+											-- Check it's not our own bed
+											local mapCFrames = workspace:FindFirstChild('MapCFrames')
+											local myTeam = lplr.Character and lplr.Character:GetAttribute('Team')
+											local isOwnBed = false
+											if mapCFrames and myTeam then
+												local myBedObj = mapCFrames:FindFirstChild(tostring(myTeam) .. '_bed')
+												if myBedObj and (myBedObj.Value.Position - obj.Position).Magnitude < 3 then
+													isOwnBed = true
+												end
+											end
+											if not isOwnBed then
+												-- Use the Breaker module if available
+												if vape.Modules.Breaker and vape.Modules.Breaker.Enabled then
+													-- Breaker handles it automatically
+												else
+													-- Manual break attempt
+													pcall(function()
+														bedwars.Client:Get(remotes.BreakBed or 'BreakBed'):SendToServer({ bed = obj })
+													end)
+												end
+											end
+										end
+									end
+								end
+							end
+						end
+						task.wait(BedSpeed.Value)
+					until not AutoBed.Enabled
+				end)
+			end
+		end
+	})
+	BedRange = AutoBed:CreateSlider({
+		Name = 'Range',
+		Min = 1,
+		Max = 30,
+		Default = 8,
+		Suffix = function(v) return v == 1 and 'stud' or 'studs' end
+	})
+	BedSpeed = AutoBed:CreateSlider({
+		Name = 'Check Speed',
+		Min = 0.05,
+		Max = 1,
+		Default = 0.1,
+		Decimal = 100,
+		Suffix = 's'
+	})
+end)
+
+
+-- ══════════════════════════════════════════════════════════
+-- AutoBridge - Places blocks under you while walking forward
+-- ══════════════════════════════════════════════════════════
+run(function()
+	local AutoBridge
+	local BridgeOffset
+	local BridgeDelay
+	local BridgeMode
+
+	AutoBridge = vape.Categories.Blatant:CreateModule({
+		Name = 'AutoBridge',
+		Tooltip = 'Automatically places blocks below you as you walk. Hold S (back) to bridge backwards.',
+		Function = function(callback)
+			if callback then
+				AutoBridge:Clean(runService.Heartbeat:Connect(function()
+					if not entitylib.isAlive then return end
+					local char = lplr.Character
+					local root = char and char:FindFirstChild('HumanoidRootPart')
+					local hum = char and char:FindFirstChild('Humanoid')
+					if not root or not hum then return end
+					if hum.FloorMaterial ~= Enum.Material.Air then return end
+
+					-- Try to place a block under the player
+					local inv = (store.localInventory and store.localInventory.inventory.items)
+						or (store.inventory and store.inventory.inventory.items) or {}
+
+					local blockItem = nil
+					for _, item in inv do
+						local ok, meta = pcall(function() return bedwars.ItemMeta[item.itemType] end)
+						if ok and meta and meta.isPlaceable then
+							blockItem = item
+							break
+						end
+					end
+
+					if not blockItem then return end
+
+					local placePos = root.Position - Vector3.new(0, BridgeOffset.Value, 0)
+					local snapPos = Vector3.new(
+						math.round(placePos.X / 4) * 4,
+						math.round(placePos.Y / 4) * 4,
+						math.round(placePos.Z / 4) * 4
+					)
+
+					pcall(function()
+						bedwars.Client:Get(remotes.PlaceBlock or 'PlaceBlock'):SendToServer({
+							item = blockItem.tool,
+							position = snapPos,
+							normal = Vector3.new(0, 1, 0)
+						})
+					end)
+				end))
+			end
+		end
+	})
+	BridgeOffset = AutoBridge:CreateSlider({
+		Name = 'Block Offset',
+		Min = 1,
+		Max = 6,
+		Default = 3,
+		Suffix = function(v) return v == 1 and 'stud' or 'studs' end
+	})
+	BridgeDelay = AutoBridge:CreateSlider({
+		Name = 'Delay',
+		Min = 0,
+		Max = 0.5,
+		Default = 0.05,
+		Decimal = 100,
+		Suffix = 's'
+	})
+end)
+
+
+-- ══════════════════════════════════════════════════════════
+-- TeamTracker - Shows which team has bed / no bed
+-- ══════════════════════════════════════════════════════════
+run(function()
+	local TeamTracker
+	local label
+
+	TeamTracker = vape.Categories.Render:CreateModule({
+		Name = 'TeamTracker',
+		Tooltip = 'Displays bed status for all teams on screen.',
+		Function = function(callback)
+			if callback then
+				label = Instance.new('TextLabel')
+				label.Size = UDim2.fromOffset(200, 300)
+				label.Position = UDim2.new(1, -210, 0, 80)
+				label.BackgroundColor3 = Color3.new(0, 0, 0)
+				label.BackgroundTransparency = 0.5
+				label.TextColor3 = Color3.new(1, 1, 1)
+				label.TextXAlignment = Enum.TextXAlignment.Left
+				label.TextYAlignment = Enum.TextYAlignment.Top
+				label.TextSize = 14
+				label.Font = Enum.Font.GothamBold
+				label.RichText = true
+				label.Parent = vape.gui
+				local corner = Instance.new('UICorner')
+				corner.CornerRadius = UDim.new(0, 6)
+				corner.Parent = label
+				TeamTracker:Clean(label)
+
+				TeamTracker:Clean(runService.Heartbeat:Connect(function()
+					local mapCFrames = workspace:FindFirstChild('MapCFrames')
+					if not mapCFrames then label.Text = 'Waiting for map...'; return end
+
+					local lines = { '<b>Team Tracker</b>' }
+					local teamColors = {
+						red = '255,80,80', blue = '80,130,255', green = '80,220,80',
+						yellow = '255,230,60', aqua = '60,220,220', pink = '255,120,200',
+						white = '230,230,230', gray = '160,160,160'
+					}
+
+					for _, obj in mapCFrames:GetChildren() do
+						local teamName = obj.Name:match('^(.-)_bed$')
+						if teamName then
+							-- Check if bed still exists in workspace
+							local bedExists = false
+							for _, w in workspace:GetDescendants() do
+								if w.Name == 'bed' and w:IsA('BasePart')
+									and (w.Position - obj.Value.Position).Magnitude < 3 then
+									bedExists = true
+									break
+								end
+							end
+							local col = teamColors[teamName] or '200,200,200'
+							local status = bedExists
+								and '<font color="rgb(80,255,80)">✔ Alive</font>'
+								or '<font color="rgb(255,80,80)">✘ Dead</font>'
+							table.insert(lines, '<font color="rgb('..col..')">'..teamName..'</font>: '..status)
+						end
+					end
+
+					label.Text = table.concat(lines, '\n')
+				end))
+			else
+				if label then label:Destroy(); label = nil end
+			end
+		end
+	})
+end)
+
+
+-- ══════════════════════════════════════════════════════════
+-- KitInfo - Shows current kit stats and cooldowns
+-- ══════════════════════════════════════════════════════════
+run(function()
+	local KitInfo
+	local kitLabel
+
+	KitInfo = vape.Categories.Render:CreateModule({
+		Name = 'KitInfo',
+		Tooltip = 'Shows your current equipped kit and its key attributes.',
+		Function = function(callback)
+			if callback then
+				kitLabel = Instance.new('TextLabel')
+				kitLabel.Size = UDim2.fromOffset(220, 100)
+				kitLabel.Position = UDim2.new(0, 10, 0.5, -50)
+				kitLabel.BackgroundColor3 = Color3.new(0, 0, 0)
+				kitLabel.BackgroundTransparency = 0.5
+				kitLabel.TextColor3 = Color3.new(1, 1, 1)
+				kitLabel.TextXAlignment = Enum.TextXAlignment.Left
+				kitLabel.TextYAlignment = Enum.TextYAlignment.Top
+				kitLabel.TextSize = 13
+				kitLabel.Font = Enum.Font.Gotham
+				kitLabel.RichText = true
+				kitLabel.Parent = vape.gui
+				local corner = Instance.new('UICorner')
+				corner.CornerRadius = UDim.new(0, 6)
+				corner.Parent = kitLabel
+				KitInfo:Clean(kitLabel)
+
+				KitInfo:Clean(runService.Heartbeat:Connect(function()
+					local kit = store.equippedKit or 'none'
+					local char = lplr.Character
+					local hum = char and char:FindFirstChild('Humanoid')
+					local hp = hum and math.round(hum.Health) or 0
+					local maxhp = hum and math.round(hum.MaxHealth) or 0
+
+					kitLabel.Text = string.format(
+						'<b>Kit:</b> %s\n<b>HP:</b> %d / %d\n<b>Team:</b> %s',
+						tostring(kit),
+						hp, maxhp,
+						tostring(lplr.Character and lplr.Character:GetAttribute('Team') or 'N/A')
+					)
+				end))
+			else
+				if kitLabel then kitLabel:Destroy(); kitLabel = nil end
+			end
+		end
+	})
+end)
+
+
+-- ══════════════════════════════════════════════════════════
+-- AntiKnockback - Counters velocity-based knockback
+-- ══════════════════════════════════════════════════════════
+run(function()
+	local AntiKnockback
+	local KBStrength
+	local KBMode
+
+	AntiKnockback = vape.Categories.Blatant:CreateModule({
+		Name = 'AntiKnockback',
+		Tooltip = 'Reduces or cancels knockback applied to your character from attacks.',
+		Function = function(callback)
+			if callback then
+				AntiKnockback:Clean(runService.PreSimulation:Connect(function()
+					if not entitylib.isAlive then return end
+					local root = entitylib.character.RootPart
+					local vel = root.AssemblyLinearVelocity
+
+					if KBMode.Value == 'Cancel' then
+						-- Zero out horizontal velocity if it exceeds a threshold (knockback signature)
+						local horizSpeed = Vector2.new(vel.X, vel.Z).Magnitude
+						if horizSpeed > 20 then
+							root.AssemblyLinearVelocity = Vector3.new(
+								vel.X * (1 - KBStrength.Value),
+								vel.Y,
+								vel.Z * (1 - KBStrength.Value)
+							)
+						end
+					elseif KBMode.Value == 'Reduce' then
+						root.AssemblyLinearVelocity = Vector3.new(
+							vel.X * (1 - KBStrength.Value * 0.5),
+							vel.Y,
+							vel.Z * (1 - KBStrength.Value * 0.5)
+						)
+					end
+				end))
+			end
+		end
+	})
+
+	KBMode = AntiKnockback:CreateDropdown({
+		Name = 'Mode',
+		List = { 'Cancel', 'Reduce' },
+		Default = 'Cancel',
+		Tooltip = 'Cancel = zero out knockback bursts | Reduce = constant dampen'
+	})
+	KBStrength = AntiKnockback:CreateSlider({
+		Name = 'Strength',
+		Min = 0,
+		Max = 1,
+		Default = 0.85,
+		Decimal = 100,
+		Suffix = 'x'
+	})
+end)
+
+
+-- ══════════════════════════════════════════════════════════
+-- NoDebuff - Disables status effect visuals/slows
+-- ══════════════════════════════════════════════════════════
+run(function()
+	local NoDebuff
+	local oldWalkSpeed
+
+	NoDebuff = vape.Categories.Blatant:CreateModule({
+		Name = 'NoDebuff',
+		Tooltip = 'Prevents visual and movement debuffs (slow, blindness) from affecting you locally.',
+		Function = function(callback)
+			if callback then
+				-- Counter WalkSpeed reductions by maintaining a minimum
+				NoDebuff:Clean(runService.Heartbeat:Connect(function()
+					if not entitylib.isAlive then return end
+					local hum = entitylib.character.Humanoid
+					if hum.WalkSpeed < 12 and hum.WalkSpeed > 0 then
+						hum.WalkSpeed = 16
+					end
+					-- Clear any fog/blindness effects added to character
+					for _, v in lplr.PlayerGui:GetDescendants() do
+						if v:IsA('Frame') and v.BackgroundTransparency < 0.6
+							and (v.Name:lower():find('blind') or v.Name:lower():find('dark')
+								or v.Name:lower():find('effect') or v.Name:lower():find('debuff')) then
+							v.BackgroundTransparency = 1
+						end
+					end
+				end))
+			end
+		end
+	})
+end)
+
+
+-- ══════════════════════════════════════════════════════════
+-- ResourceCollector - Auto-collects dropped resources
+-- ══════════════════════════════════════════════════════════
+run(function()
+	local ResourceCollector
+	local CollectRange
+	local CollectSpeed
+
+	ResourceCollector = vape.Categories.Blatant:CreateModule({
+		Name = 'ResourceCollector',
+		Tooltip = 'Automatically collects dropped resource items (iron, gold, diamonds, emeralds) near you.',
+		Function = function(callback)
+			if callback then
+				task.spawn(function()
+					local RESOURCE_NAMES = {
+						iron_ingot = true, gold_ingot = true, diamond = true, emerald = true,
+						wood = true, stone = true, wool = true, resource = true
+					}
+
+					repeat
+						if entitylib.isAlive then
+							local root = lplr.Character and lplr.Character:FindFirstChild('HumanoidRootPart')
+							if root then
+								for _, obj in workspace:GetDescendants() do
+									if obj:IsA('BasePart') or obj:IsA('MeshPart') then
+										local nameL = obj.Name:lower()
+										local isResource = false
+										for rname in RESOURCE_NAMES do
+											if nameL:find(rname) then isResource = true; break end
+										end
+										if isResource and (obj.Position - root.Position).Magnitude <= CollectRange.Value then
+											pcall(function()
+												bedwars.Client:Get(remotes.PickupItem or 'PickupItem'):SendToServer({ item = obj })
+											end)
+										end
+									end
+								end
+							end
+						end
+						task.wait(CollectSpeed.Value)
+					until not ResourceCollector.Enabled
+				end)
+			end
+		end
+	})
+
+	CollectRange = ResourceCollector:CreateSlider({
+		Name = 'Range',
+		Min = 1,
+		Max = 50,
+		Default = 20,
+		Suffix = function(v) return v == 1 and 'stud' or 'studs' end
+	})
+	CollectSpeed = ResourceCollector:CreateSlider({
+		Name = 'Speed',
+		Min = 0.05,
+		Max = 1,
+		Default = 0.1,
+		Decimal = 100,
+		Suffix = 's'
+	})
+end)
+
+
+-- ══════════════════════════════════════════════════════════
+-- AutoShop - Automatically buys items from the shop
+-- ══════════════════════════════════════════════════════════
+run(function()
+	local AutoShop
+	local ShopItems
+	local ShopDelay
+	local ShopLoop
+
+	AutoShop = vape.Categories.Utility:CreateModule({
+		Name = 'AutoShop',
+		Tooltip = 'Automatically buys listed items from the BedWars shop when you have enough resources.',
+		Function = function(callback)
+			if callback then
+				task.spawn(function()
+					repeat
+						for _, itemName in ipairs(ShopItems.ListEnabled) do
+							pcall(function()
+								-- BedWars shop purchase remote
+								bedwars.Client:Get(remotes.BuyItem or 'BuyItem'):SendToServer({ itemType = itemName })
+							end)
+							task.wait(0.1)
+						end
+						task.wait(ShopDelay.Value)
+					until not AutoShop.Enabled
+				end)
+			end
+		end
+	})
+
+	ShopItems = AutoShop:CreateTextList({
+		Name = 'Items',
+		Placeholder = 'item_type (e.g. sharpness_sword)',
+		Default = {}
+	})
+	ShopDelay = AutoShop:CreateSlider({
+		Name = 'Interval',
+		Min = 0.5,
+		Max = 10,
+		Default = 2,
+		Decimal = 10,
+		Suffix = 's'
+	})
+	ShopLoop = AutoShop:CreateToggle({
+		Name = 'Loop Buying',
+		Default = true,
+		Tooltip = 'Keep buying the same items every interval'
+	})
+end)
+
+
+-- ══════════════════════════════════════════════════════════
+-- GrandKillaura - Wide-range AOE melee using SwordHit
+-- ══════════════════════════════════════════════════════════
+run(function()
+	local GrandKillaura
+	local GKTargets
+	local GKRange
+	local GKCooldown
+	local GKMax
+	local lastGKAttack = 0
+
+	GrandKillaura = vape.Categories.Combat:CreateModule({
+		Name = 'GrandKillaura',
+		Tooltip = 'Wide-range melee AOE. Hits multiple targets using the SwordHit remote at high range.',
+		Function = function(callback)
+			if callback then
+				GrandKillaura:Clean(runService.Heartbeat:Connect(function()
+					if not entitylib.isAlive then return end
+					if tick() - lastGKAttack < GKCooldown.Value then return end
+
+					local root = entitylib.character.RootPart
+					if not root then return end
+
+					local sword = store.tools and store.tools.sword
+					if not sword or not sword.tool then return end
+
+					local plrs = entitylib.AllPosition({
+						Range = GKRange.Value,
+						Part = 'RootPart',
+						Players = GKTargets.Players.Enabled,
+						NPCs = GKTargets.NPCs.Enabled,
+						Wallcheck = false,
+						Limit = GKMax.Value
+					})
+
+					if #plrs == 0 then return end
+					lastGKAttack = tick()
+
+					for _, ent in plrs do
+						pcall(function()
+							local cam = workspace.CurrentCamera
+							local dir = (ent.RootPart.Position - cam.CFrame.Position).Unit
+							bedwars.Client:Get('SwordHit'):SendToServer({
+								weapon = sword.tool,
+								entityInstance = ent.Character,
+								chargedAttack = { chargeRatio = 1 },
+								validate = {
+									raycast = {
+										cameraPosition = { value = cam.CFrame.Position },
+										cursorDirection = { value = dir }
+									},
+									targetPosition = { value = ent.RootPart.Position },
+									selfPosition = { value = root.Position }
+								}
+							})
+						end)
+					end
+				end))
+			end
+		end
+	})
+
+	GKTargets = GrandKillaura:CreateTargets({ Players = true })
+	GKRange = GrandKillaura:CreateSlider({
+		Name = 'Range',
+		Min = 1,
+		Max = 60,
+		Default = 25,
+		Suffix = function(v) return v == 1 and 'stud' or 'studs' end
+	})
+	GKMax = GrandKillaura:CreateSlider({
+		Name = 'Max Targets',
+		Min = 1,
+		Max = 10,
+		Default = 5
+	})
+	GKCooldown = GrandKillaura:CreateSlider({
+		Name = 'Attack Delay',
+		Min = 0.05,
+		Max = 1,
+		Default = 0.35,
+		Decimal = 100,
+		Suffix = 's'
+	})
+end)
+
+
+-- ══════════════════════════════════════════════════════════
+-- BedESP - Highlights all enemy beds through walls
+-- ══════════════════════════════════════════════════════════
+run(function()
+	local BedESP
+	local BedColor
+	local highlights = {}
+
+	local function addBedHighlight(obj)
+		if highlights[obj] then return end
+		local h = Instance.new('SelectionBox')
+		h.Adornee = obj
+		h.Color3 = Color3.fromHSV(BedColor.Hue, BedColor.Sat, BedColor.Value)
+		h.LineThickness = 0.05
+		h.SurfaceTransparency = 0.7
+		h.SurfaceColor3 = Color3.fromHSV(BedColor.Hue, BedColor.Sat, BedColor.Value)
+		h.Parent = vape.gui
+		highlights[obj] = h
+	end
+
+	local function removeHighlight(obj)
+		if highlights[obj] then
+			highlights[obj]:Destroy()
+			highlights[obj] = nil
+		end
+	end
+
+	BedESP = vape.Categories.Render:CreateModule({
+		Name = 'BedESP',
+		Tooltip = 'Draws a box around all enemy beds so you always know where to strike.',
+		Function = function(callback)
+			if callback then
+				local myTeam = lplr.Character and lplr.Character:GetAttribute('Team')
+				local mapCFrames = workspace:FindFirstChild('MapCFrames')
+
+				-- Scan existing beds
+				for _, obj in workspace:GetDescendants() do
+					if obj.Name == 'bed' and obj:IsA('BasePart') then
+						-- Skip own team bed
+						local isOwn = false
+						if mapCFrames and myTeam then
+							local myBed = mapCFrames:FindFirstChild(tostring(myTeam) .. '_bed')
+							if myBed and (myBed.Value.Position - obj.Position).Magnitude < 3 then
+								isOwn = true
+							end
+						end
+						if not isOwn then addBedHighlight(obj) end
+					end
+				end
+
+				BedESP:Clean(workspace.DescendantAdded:Connect(function(obj)
+					if obj.Name == 'bed' and obj:IsA('BasePart') then
+						task.wait()
+						myTeam = lplr.Character and lplr.Character:GetAttribute('Team')
+						mapCFrames = workspace:FindFirstChild('MapCFrames')
+						local isOwn = false
+						if mapCFrames and myTeam then
+							local myBed = mapCFrames:FindFirstChild(tostring(myTeam) .. '_bed')
+							if myBed and (myBed.Value.Position - obj.Position).Magnitude < 3 then
+								isOwn = true
+							end
+						end
+						if not isOwn then addBedHighlight(obj) end
+					end
+				end))
+
+				BedESP:Clean(workspace.DescendantRemoving:Connect(function(obj)
+					removeHighlight(obj)
+				end))
+			else
+				for obj, h in highlights do
+					h:Destroy()
+				end
+				table.clear(highlights)
+			end
+		end
+	})
+
+	BedColor = BedESP:CreateColorSlider({
+		Name = 'Color',
+		Function = function(h, s, v)
+			for _, box in highlights do
+				box.Color3 = Color3.fromHSV(h, s, v)
+				box.SurfaceColor3 = Color3.fromHSV(h, s, v)
+			end
+		end
+	})
+end)
+
+
+-- ══════════════════════════════════════════════════════════
+-- AutoPotion - Automatically uses potions when HP is low
+-- ══════════════════════════════════════════════════════════
+run(function()
+	local AutoPotion
+	local PotionThreshold
+	local PotionDelay
+	local lastPotion = 0
+
+	AutoPotion = vape.Categories.Utility:CreateModule({
+		Name = 'AutoPotion',
+		Tooltip = 'Automatically uses a healing potion from inventory when HP drops below threshold.',
+		Function = function(callback)
+			if callback then
+				AutoPotion:Clean(runService.Heartbeat:Connect(function()
+					if not entitylib.isAlive then return end
+					if tick() - lastPotion < PotionDelay.Value then return end
+
+					local hum = entitylib.character.Humanoid
+					local hpRatio = hum.Health / hum.MaxHealth
+					if hpRatio > (PotionThreshold.Value / 100) then return end
+
+					-- Find a potion in inventory
+					local inv = (store.localInventory and store.localInventory.inventory.items)
+						or (store.inventory and store.inventory.inventory.items) or {}
+
+					for _, item in inv do
+						local nameL = tostring(item.itemType):lower()
+						if nameL:find('potion') or nameL:find('golden_apple') or nameL:find('heal') then
+							pcall(function()
+								bedwars.Client:Get(remotes.UseItem or 'UseItem'):SendToServer({ item = item.tool })
+							end)
+							lastPotion = tick()
+							break
+						end
+					end
+				end))
+			end
+		end
+	})
+
+	PotionThreshold = AutoPotion:CreateSlider({
+		Name = 'HP Threshold',
+		Min = 5,
+		Max = 80,
+		Default = 40,
+		Suffix = '%',
+		Tooltip = 'Use potion when HP is below this percentage'
+	})
+	PotionDelay = AutoPotion:CreateSlider({
+		Name = 'Cooldown',
+		Min = 0.5,
+		Max = 5,
+		Default = 1,
+		Decimal = 10,
+		Suffix = 's'
+	})
+end)
+
+
+-- ══════════════════════════════════════════════════════════
+-- VoidWalk - Teleports you to just above void level safely
+-- ══════════════════════════════════════════════════════════
+run(function()
+	local VoidWalk
+	local VoidHeight
+
+	VoidWalk = vape.Categories.Blatant:CreateModule({
+		Name = 'VoidWalk',
+		Tooltip = 'Instantly drops you to just above the void for fast repositioning or escape.',
+		Function = function(callback)
+			if callback then
+				if entitylib.isAlive then
+					local root = entitylib.character.RootPart
+					root.CFrame = CFrame.new(root.Position.X, VoidHeight.Value, root.Position.Z)
+					vape:CreateNotification('VoidWalk', 'Teleported to Y=' .. VoidHeight.Value, 3)
+				end
+				VoidWalk:Toggle(false)
+			end
+		end
+	})
+
+	VoidHeight = VoidWalk:CreateSlider({
+		Name = 'Y Level',
+		Min = -500,
+		Max = 0,
+		Default = -100,
+		Tooltip = 'How far below 0 to teleport. -100 is usually near the void.'
 	})
 end)
 

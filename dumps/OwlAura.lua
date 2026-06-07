@@ -86,6 +86,25 @@ local PROJECTILE_SPEED = 220
 local SHOOT_COOLDOWN = 0.87
 local lastShot = 0
 
+-- Cached NetManaged reference so WaitForChild isn't called every shot
+local _NetManaged = nil
+local function getNetManaged()
+	if _NetManaged then return _NetManaged end
+	local ok, nm = pcall(function()
+		return replicatedStorage
+			:WaitForChild("rbxts_include", 5)
+			:WaitForChild("node_modules", 5)
+			:WaitForChild("@rbxts", 5)
+			:WaitForChild("net", 5)
+			:WaitForChild("out", 5)
+			:WaitForChild("_NetManaged", 5)
+	end)
+	if ok and nm then
+		_NetManaged = nm
+	end
+	return _NetManaged
+end
+
 local function getOwlModel()
 	return workspace:FindFirstChild("ClientOwl")
 end
@@ -97,25 +116,23 @@ local function getBulletOrigin(owl)
 	return bo and bo.WorldPosition or primary.Position
 end
 
-local function fireOwlProjectile(fromPos, targetPos, targetVel)
+local function fireOwlProjectile(fromPos, targetPos)
 	local owl = getOwlModel()
 	if not owl then return end
 	local owlHandle = owl:FindFirstChild("Handle") or owl.PrimaryPart
 	if not owlHandle then return end
 
-	local NetManaged = replicatedStorage
-		:WaitForChild("rbxts_include")
-		:WaitForChild("node_modules")
-		:WaitForChild("@rbxts")
-		:WaitForChild("net")
-		:WaitForChild("out")
-		:WaitForChild("_NetManaged")
+	local NetManaged = getNetManaged()
+	if not NetManaged then return end
 
 	local owlAiming = NetManaged:FindFirstChild("OwlAiming")
 	local owlFireProjectile = NetManaged:FindFirstChild("OwlFireProjectile")
 	if not owlAiming or not owlFireProjectile then return end
 
-	local direction = (targetPos - fromPos).Unit * PROJECTILE_SPEED
+	-- Avoid zero-direction crash if fromPos == targetPos
+	local delta = targetPos - fromPos
+	if delta.Magnitude < 0.01 then return end
+	local direction = delta.Unit * PROJECTILE_SPEED
 	local refId = httpService:GenerateGUID(false):sub(1, 8):upper()
 
 	owlAiming:FireServer({ owl = owlHandle, starting = true })
@@ -130,50 +147,92 @@ local function fireOwlProjectile(fromPos, targetPos, targetVel)
 	})
 end
 
+-- Fallback entity scan — searches all players directly when entitylib has no targets
+local function findNearestPlayerFallback(fromPos, range)
+	local best, bestDist = nil, range * range
+	for _, plr in playersService:GetPlayers() do
+		if plr == lplr then continue end
+		local char = plr.Character
+		local root = char and char:FindFirstChild("HumanoidRootPart")
+		if not root then continue end
+		local hum = char:FindFirstChild("Humanoid")
+		if not hum or hum.Health <= 0 then continue end
+		local distSq = (root.Position - fromPos).Magnitude
+		if distSq < bestDist then
+			bestDist = distSq
+			best = root
+		end
+	end
+	return best
+end
+
 OwlAura = vape.Categories.Blatant:CreateModule({
 	Name = 'OwlAura',
-	Tooltip = 'auto shoots at nearby enemies...',
+	Tooltip = 'Auto-shoots the owl at nearby enemies. Range increased, fallback targeting included.',
 	Function = function(callback)
 		if callback then
+			-- Pre-warm the NetManaged cache so there's no WaitForChild delay mid-shot
+			task.spawn(getNetManaged)
+
 			OwlAura:Clean(runService.Heartbeat:Connect(function()
 				if tick() - lastShot < SHOOT_COOLDOWN then return end
-				if not entitylib.isAlive then return end
 
-				local owl = getOwlModel()
+				-- Require character but NOT entitylib.isAlive — isAlive can be nil
+				-- right after spawn or on certain kits, causing the module to never fire
 				local myRoot = lplr.Character and lplr.Character:FindFirstChild("HumanoidRootPart")
 				if not myRoot then return end
+
+				local owl = getOwlModel()
 				local fromPos = owl and getBulletOrigin(owl) or myRoot.Position
+				local range = RangeSlider and RangeSlider.Value or 80
 
-				local ent = entitylib.EntityPosition({
-					Range = RangeSlider and RangeSlider.Value or 40,
-					Part = 'RootPart',
-					Origin = fromPos,
-					Wallcheck = Targets.Walls.Enabled,
-					Players = Targets.Players.Enabled,
-					NPCs = Targets.NPCs.Enabled,
-				})
+				local rootPos, vel
 
-				if not ent or not ent.RootPart then return end
+				-- Primary: use entitylib (respects walls / team checks)
+				if entitylib.isAlive then
+					local ent = entitylib.EntityPosition({
+						Range = range,
+						Part = 'RootPart',
+						Origin = fromPos,
+						Wallcheck = Targets and Targets.Walls and Targets.Walls.Enabled or false,
+						Players = Targets and Targets.Players and Targets.Players.Enabled or true,
+						NPCs = Targets and Targets.NPCs and Targets.NPCs.Enabled or false,
+					})
+					if ent and ent.RootPart then
+						rootPos = ent.RootPart.Position
+						vel = ent.RootPart.AssemblyLinearVelocity
+					end
+				end
 
-				local rootPos = ent.RootPart.Position
-				local vel = ent.RootPart.AssemblyLinearVelocity
+				-- Fallback: scan players directly if entitylib returned nothing
+				if not rootPos then
+					local fallbackRoot = findNearestPlayerFallback(fromPos, range)
+					if fallbackRoot then
+						rootPos = fallbackRoot.Position
+						vel = fallbackRoot.AssemblyLinearVelocity
+					end
+				end
+
+				if not rootPos then return end
+
+				-- Lead the target based on flight time
 				local dist = (fromPos - rootPos).Magnitude
 				local timeToHit = dist / PROJECTILE_SPEED
-				local predictedPos = rootPos + vel * timeToHit
+				local predictedPos = rootPos + (vel or Vector3.zero) * timeToHit
 
 				lastShot = tick()
-				fireOwlProjectile(fromPos, predictedPos, Vector3.zero)
+				fireOwlProjectile(fromPos, predictedPos)
 			end))
 		end
 	end
 })
 
-Targets = OwlAura:CreateTargets({})
+Targets = OwlAura:CreateTargets({ Players = true })
 RangeSlider = OwlAura:CreateSlider({
 	Name = 'Range',
 	Min = 10,
-	Max = 60,
-	Default = 40,
+	Max = 150,
+	Default = 80,
 	Suffix = function(val)
 		return val == 1 and 'stud' or 'studs'
 	end
