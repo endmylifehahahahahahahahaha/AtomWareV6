@@ -3751,6 +3751,24 @@ run(function()
 		Decimal = 10
 	})
 end)
+
+run(function()
+	local HealthExploit
+
+	HealthExploit = vape.Categories.Blatant:CreateModule({
+		Name = 'Health Exploit',
+		Function = function(callback)
+			if callback then
+				HealthExploit:Clean(runService.Heartbeat:Connect(function()
+					pcall(function()
+						game:GetService('ReplicatedStorage').rbxts_include.node_modules['@rbxts'].net.out._NetManaged.PlayerEatCake:FireServer({block = game.ReplicatedStorage.Items.cake_one})
+					end)
+				end))
+			end
+		end,
+		Tooltip = 'Fires PlayerEatCake repeatedly to gain health'
+	})
+end)
 	
 run(function()
 	local Arrows
@@ -7769,29 +7787,52 @@ run(function()
 end)
 	
 run(function()
-	local FOV
-	local Value
+	local FieldOfViewValue = {Value = 70}
 	local oldfov
-	
-	FOV = vape.Categories.Legit:CreateModule({
-		Name = 'FOV',
+	local oldfov2
+	local FieldOfView = {Enabled = false}
+	local FieldOfViewZoom = {Enabled = false}
+	FieldOfView = vape.Categories.Legit:CreateModule({
+		Name = 'FOVChanger',
 		Function = function(callback)
 			if callback then
-				oldfov = gameCamera.FieldOfView
-				repeat
-					gameCamera.FieldOfView = Value.Value
-					task.wait()
-				until not FOV.Enabled
+				if FieldOfViewZoom.Enabled then
+					task.spawn(function()
+						repeat
+							task.wait()
+						until not inputService:IsKeyDown(Enum.KeyCode[FieldOfView.Keybind ~= "" and FieldOfView.Keybind or "C"])
+						if FieldOfView.Enabled then
+							FieldOfView:SetEnabled(false)
+						end
+					end)
+				end
+				oldfov = bedwars.FovController.setFOV
+				oldfov2 = bedwars.FovController.getFOV
+				bedwars.FovController.setFOV = function(self, fov) return oldfov(self, FieldOfViewValue.Value) end
+				bedwars.FovController.getFOV = function(self, fov) return FieldOfViewValue.Value end
 			else
-				gameCamera.FieldOfView = oldfov
+				bedwars.FovController.setFOV = oldfov
+				bedwars.FovController.getFOV = oldfov2
 			end
+			bedwars.FovController:setFOV(bedwars.ClientStoreHandler:getState().Settings.fov)
 		end,
-		Tooltip = 'Adjusts camera vision'
+		Tooltip = 'Adjusts camera FOV via bedwars controller'
 	})
-	Value = FOV:CreateSlider({
+	FieldOfViewValue = FieldOfView:CreateSlider({
 		Name = 'FOV',
 		Min = 30,
-		Max = 120
+		Max = 120,
+		Default = 70,
+		Function = function(val)
+			if FieldOfView.Enabled then
+				bedwars.FovController:setFOV(bedwars.ClientStoreHandler:getState().Settings.fov)
+			end
+		end
+	})
+	FieldOfViewZoom = FieldOfView:CreateToggle({
+		Name = 'Zoom',
+		Function = function() end,
+		HoverText = 'optifine zoom lol'
 	})
 end)
 	
